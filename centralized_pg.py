@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import pfrl
 import pdb
 import envs
-from envs import rastrigin
+from envs import rastrigin, quadratic
 
 parser = argparse.ArgumentParser(description='PyTorch REINFORCE example')
 parser.add_argument('--gamma', type=float, default=0.99,
@@ -25,12 +25,18 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
 parser.add_argument('--dim', type=int, default=3, help='Number of dimension')
 parser.add_argument('--max_eps_len', type=int, default=50, help='Number of steps per episode')
 parser.add_argument('--num_episodes', type=int, default=10000, help='Number training episodes')
-
+parser.add_argument('--env', type=str, default='Quadratic2D', help='Training env')
 args = parser.parse_args()
 
 #env.seed(args.seed)
 dimension = args.dim
-env = rastrigin.Rastrigin(dimension=dimension)
+if args.env == 'Rastrigin':
+	env = rastrigin.Rastrigin(dimension=dimension)
+elif args.env == 'Quadratic2D':
+	env = quadratic.Quadratic(dimension=2)
+elif args.env == 'Quadratic3D':
+	env = quadratic.Quadratic3D(dimension=3)
+
 torch.manual_seed(args.seed)
 
 class Policy(nn.Module):
@@ -105,6 +111,8 @@ def main():
 			R += reward
 			reset = t == max_eps_len-1
 			if done or reset:
+				if i % 100 == 0:
+					print('Last Action: {} State: {} F(y):{} Reward: {} Done: {}'.format(action, state, y, reward, done))
 				R_hist.append(R)
 				y_hist.append(y)
 				state = env.reset()
@@ -122,22 +130,20 @@ def main():
 			print('Episode:{} Average reward:{:.2f}'.format(i, avg_reward))
 
 							
-		if i % 100 == 0:
-			print('Last Action: {} State: {} F(y):{} Reward: {} Done: {}'.format(action, state, y, reward, done))
 
 	plt.figure()		
 	plt.plot(R_hist_plot)
 	plt.ylabel('Reward')
 	plt.xlabel('Episodes')
-	plt.title(str(dimension) + '-d Rastrigin')
-	plt.savefig(str(dimension) + '-d rastrigin_R.jpg')
+	plt.title(str(dimension) + '-d' + args.env +'')
+	plt.savefig(str(dimension) + '-d' + args.env +'_R.jpg')
 
 	plt.figure()
 	plt.plot(y_hist_plot)
 	plt.ylabel('F(y)')
 	plt.xlabel('Episodes')
-	plt.title(str(dimension) + '-d Rastrigin')
-	plt.savefig(str(dimension) + '-d rastrigin_y.jpg')
+	plt.title(str(dimension) + '-d' + args.env +'')
+	plt.savefig(str(dimension) + '-d' + args.env +'_y.jpg')
 
 if __name__ == '__main__':
 	main()
