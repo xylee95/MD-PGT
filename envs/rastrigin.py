@@ -37,6 +37,7 @@ class Rastrigin(gym.Env):
         if np.less_equal( (np.absolute(self.state)), np.ones(self.dimension)*1e-3).all():
             self.done = True
             self.reward = 10
+        # another termintion condition on f(y) maybe?
         return self.state, self.reward, self.done, self.y
 
     def reset(self):
@@ -45,7 +46,16 @@ class Rastrigin(gym.Env):
 
     def get_reward(self):
         # Reward compute based on y: we want previous y to be bigger than current y
-        reward = -0.1*self.y + (self.prev_y - self.y)
+        # Might also want to consider based on distance of x from optimal
+
+        #reward = -0.1*self.y + (self.prev_y - self.y)
+        #reward = -0.1*self.y + 0.1*(self.prev_y - self.y)
+
+        #r3
+        #reward = -0.1*self.y 
+
+        #r4
+        reward = -0.1*np.linalg.norm(self.state)
         return reward
         
     def eval_func(self, action):

@@ -9,25 +9,27 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical
 
+import matplotlib.pyplot as plt
+
 import pfrl
 import pdb
 import envs
 from envs import rastrigin
 
 parser = argparse.ArgumentParser(description='PyTorch REINFORCE example')
-parser.add_argument('--gamma', type=float, default=0.99, metavar='G',
+parser.add_argument('--gamma', type=float, default=0.99,
 					help='discount factor (default: 0.99)')
-parser.add_argument('--seed', type=int, default=0, metavar='N',
-					help='random seed (default: 543)')
-parser.add_argument('--render', action='store_true',
-					help='render the environment')
+parser.add_argument('--seed', type=int, default=0, help='random seed (default: 0)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
 					help='interval between training status logs (default: 10)')
+parser.add_argument('--dim', type=int, default=3, help='Number of dimension')
+parser.add_argument('--max_eps_len', type=int, default=50, help='Number of steps per episode')
+parser.add_argument('--num_episodes', type=int, default=10000, help='Number training episodes')
+
 args = parser.parse_args()
 
-#env = gym.make('CartPole-v1')
 #env.seed(args.seed)
-dimension = 3
+dimension = args.dim
 env = rastrigin.Rastrigin(dimension=dimension)
 torch.manual_seed(args.seed)
 
@@ -61,7 +63,6 @@ eps = np.finfo(np.float32).eps.item()
 def select_action(state):
 	state = torch.from_numpy(state).float().unsqueeze(0)
 	dist = policy(state)
-	#m = Categorical(probs)
 	action = dist.sample()
 	policy.saved_log_probs.append(dist.log_prob(action))
 	return action
@@ -85,37 +86,58 @@ def finish_episode():
 	del policy.saved_log_probs[:]
 
 def main():
-	num_episodes = 2000
+	num_episodes = args.num_episodes
 	done = False
-	max_eps_len = 100
+	max_eps_len = args.max_eps_len
 	R = 0 
 	R_hist = []
+	y_hist = []
+	R_hist_plot = []
+	y_hist_plot = []
+
 	for i in range(num_episodes):
 		state = env.reset()
 		for t in range(1, max_eps_len):  # Don't infinite loop while learning
 			action = select_action(state)
 			action = np.clip(action, env.min_action, env.max_action)
 			state, reward, done, y = env.step(action)
-			# if i % 100 == 0:
-			# 	print('Action: {} State: {} F(y):{} Reward: {} Done: {}'.format(action, state, y, reward, done))
 			policy.rewards.append(reward)
 			R += reward
 			reset = t == max_eps_len-1
 			if done or reset:
 				R_hist.append(R)
+				y_hist.append(y)
 				state = env.reset()
 				R = 0
 				break
-
 		finish_episode()
+
 		if i % args.log_interval == 0:
-			running_reward = np.mean(R_hist)
-			print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
-				  i, R_hist[-1], running_reward))
+			avg_reward = np.mean(R_hist)
+			avg_y = np.mean(y_hist)
+			y_hist_plot.append(avg_y)
+			R_hist_plot.append(avg_reward)
+			y_hist = []
+			R_hist = []
+			print('Episode:{} Average reward:{:.2f}'.format(i, avg_reward))
+
+							
 		if i % 100 == 0:
 			print('Last Action: {} State: {} F(y):{} Reward: {} Done: {}'.format(action, state, y, reward, done))
-			R_hist = []
 
+	plt.figure()		
+	plt.plot(R_hist_plot)
+	plt.ylabel('Reward')
+	plt.xlabel('Episodes')
+	plt.title(str(dimension) + '-d Rastrigin')
+	plt.savefig(str(dimension) + '-d rastrigin_R.jpg')
+
+	plt.figure()
+	plt.plot(y_hist_plot)
+	plt.ylabel('F(y)')
+	plt.xlabel('Episodes')
+	plt.title(str(dimension) + '-d Rastrigin')
+	plt.savefig(str(dimension) + '-d rastrigin_y.jpg')
 
 if __name__ == '__main__':
 	main()
