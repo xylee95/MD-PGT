@@ -127,9 +127,7 @@ def main():
 			R_hist_plot.append(avg_reward)
 			y_hist = []
 			R_hist = []
-			print('Episode:{} Average reward:{:.2f}'.format(i, avg_reward))
-
-							
+			print('Episode:{} Average reward:{:.2f}'.format(i, avg_reward))				
 
 	plt.figure()		
 	plt.plot(R_hist_plot)

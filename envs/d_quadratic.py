@@ -48,7 +48,10 @@ class Quadratic(gym.Env):
         # Reward compute based on y: we want previous y to be bigger than current y
         # Might also want to consider based on distance of x from optimal
 
+        #r1
         #reward = -0.1*self.y + (self.prev_y - self.y)
+
+        #r2
         #reward = -0.1*self.y + 0.1*(self.prev_y - self.y)
 
         #r3
@@ -56,10 +59,12 @@ class Quadratic(gym.Env):
 
         #r4
         #reward = -0.1*np.linalg.norm(self.state)
-        return reward
+
+        # returns a global reward for each agent
+        rewards = [reward for i in range(self.dimension)]
+        return rewards
         
     def eval_func(self, action):
-        # optimum at x = y = 0
         assert len(action)==self.dimension
         y = self.state[0]**2 + 2*self.state[0]*self.state[1] + self.state[1]**2
         return y
@@ -70,7 +75,6 @@ class Quadratic3D(Quadratic):
         super(Quadratic3D, self).__init__(dimension=3)
 
     def eval_func(self, action):
-        # optimum at x = -y-z
         assert len(action)==self.dimension
         y = self.state[0]**2 + self.state[1]**2 + self.state[2]**2 + \
             2*self.state[0]*self.state[1] + 2*self.state[0]*self.state[2] + 2*self.state[1]*self.state[2]
