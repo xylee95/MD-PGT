@@ -68,6 +68,11 @@ class Rastrigin(gym.Env):
         y = A*self.dimension + sum_term
         return y
 
+    def plot_eval_func(self, action):
+        assert len(action) == 2, "action dimension surpasses 3D for visualization purposes"
+        x, y = action
+        return 10*2 + (x**2 - 10*np.cos(2*np.pi*x)) + (y**2 - 10*np.cos(2*np.pi*y))
+
 class Rastrigin2D(Rastrigin):
     """docstring for Rastrigin2D"""
     def __init__(self):
