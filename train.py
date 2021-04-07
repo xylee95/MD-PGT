@@ -251,7 +251,7 @@ def main():
 	plt.ylabel('Reward')
 	plt.xlabel('Episodes')
 	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env)
-	plt.savefig(str(dimension) + '-d ' + setup ' ' + args.env + '_R.jpg')
+	plt.savefig(str(dimension) + '-d ' + setup + ' ' + args.env + '_R.jpg')
 	plt.close()
 
 	plt.figure()
