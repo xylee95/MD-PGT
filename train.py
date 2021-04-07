@@ -106,7 +106,7 @@ def global_average(agents, num_agents):
 
 	return agents
 
-def finish_episode(policy, optimizer):
+def finish_episode_1(policy, optimizer):
 	eps = np.finfo(np.float32).eps.item()
 	R = 0
 	policy_loss = []
@@ -122,6 +122,26 @@ def finish_episode(policy, optimizer):
 	optimizer.zero_grad()
 	policy_loss = torch.stack(policy_loss).sum()
 	policy_loss.backward()
+	# optimizer.step()
+	# del policy.rewards[:]
+	# del policy.saved_log_probs[:]
+
+def finish_episode_2(policy, optimizer):
+	# eps = np.finfo(np.float32).eps.item()
+	# R = 0
+	# policy_loss = []
+	# returns = []
+	# for r in policy.rewards[::-1]:
+	# 	R = r + args.gamma * R
+	# 	returns.insert(0, R)
+
+	# returns = torch.tensor(returns)
+	# returns = (returns - returns.mean()) / (returns.std() + eps)
+	# for log_prob, R in zip(policy.saved_log_probs, returns):
+	# 	policy_loss.append(-log_prob * R)
+	# optimizer.zero_grad()
+	# policy_loss = torch.stack(policy_loss).sum()
+	# policy_loss.backward()
 	optimizer.step()
 	del policy.rewards[:]
 	del policy.saved_log_probs[:]
@@ -203,10 +223,12 @@ def main():
 				R = 0
 				break
 
+		for policy, optimizer in zip(agents, optimizers):
+			finish_episode_1(policy, optimizer)
 		if action_dim != 1:
 			agents = global_average(agents, num_agents)
 		for policy, optimizer in zip(agents, optimizers):
-			finish_episode(policy, optimizer)
+			finish_episode_2(policy, optimizer)
 
 		if episode == num_episodes - 1 and args.dim == 2:
 			plot_surface.visualize(env, path, setup + ' ' + args.env)
