@@ -7,21 +7,21 @@ from numpy import linalg as LA
 class Quadratic(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, dimension=2):
+    def __init__(self, dimension=2, seed=0):
         #dimension of benchmark Rastrigin function
         #The function is usually evaluated on the hypercube xi ∈ [-5.12, 5.12], for all i = 1, …, d. 
+        self.seed = seed
+        np.random.seed(self.seed)
         self.dimension = dimension
         self.min_action = -0.5
         self.max_action = 0.5 
         self.initial_pos =  np.random.uniform(low=-10, high=10, size=(self.dimension,))
         self.max_bound = 10
         self.min_bound = -10
-        self.goal_position = 0
         self.y = 1 #dummy variable
         self.prev_y = 1 #dummy
         self.action_space = spaces.Box(low=self.min_action, high=self.max_action, shape=(self.dimension,), dtype=np.float32)
         self.observation_space = spaces.Box(low=self.min_action, high=self.max_action, shape=(self.dimension,), dtype=np.float32)
-        #self.seed()
         self.done = False
         self.reward = 0
         self.reset()

@@ -28,10 +28,9 @@ parser.add_argument('--num_agents', type=int, default=2, help='Number of agents'
 parser.add_argument('--max_eps_len', type=int, default=100, help='Number of steps per episode')
 parser.add_argument('--num_episodes', type=int, default=5000, help='Number training episodes')
 parser.add_argument('--env', type=str, default='quad2d', help='Training env')
-parser.add_argument('--gpu', type=bool, default=False, help='enable gpu')
+parser.add_argument('--gpu', type=bool, default=False, help='Enable gpu')
 args = parser.parse_args()
 
-#env.seed(args.seed)
 torch.manual_seed(args.seed)
 
 class Policy(nn.Module):
@@ -84,7 +83,6 @@ def global_average(agents, num_agents):
 		layer_3_w.append(agent.dense3.weight.data)
 		layer_3_b.append(agent.dense3.bias.data)
 
-
 	layer_1_w = torch.sum(torch.stack(layer_1_w),0) / num_agents
 	layer_1_b = torch.sum(torch.stack(layer_1_b),0) / num_agents
 
@@ -106,7 +104,7 @@ def global_average(agents, num_agents):
 
 	return agents
 
-def finish_episode_1(policy, optimizer):
+def compute_grads(policy, optimizer):
 	eps = np.finfo(np.float32).eps.item()
 	R = 0
 	policy_loss = []
@@ -122,26 +120,8 @@ def finish_episode_1(policy, optimizer):
 	optimizer.zero_grad()
 	policy_loss = torch.stack(policy_loss).sum()
 	policy_loss.backward()
-	# optimizer.step()
-	# del policy.rewards[:]
-	# del policy.saved_log_probs[:]
 
-def finish_episode_2(policy, optimizer):
-	# eps = np.finfo(np.float32).eps.item()
-	# R = 0
-	# policy_loss = []
-	# returns = []
-	# for r in policy.rewards[::-1]:
-	# 	R = r + args.gamma * R
-	# 	returns.insert(0, R)
-
-	# returns = torch.tensor(returns)
-	# returns = (returns - returns.mean()) / (returns.std() + eps)
-	# for log_prob, R in zip(policy.saved_log_probs, returns):
-	# 	policy_loss.append(-log_prob * R)
-	# optimizer.zero_grad()
-	# policy_loss = torch.stack(policy_loss).sum()
-	# policy_loss.backward()
+def update_weights(policy, optimizer):
 	optimizer.step()
 	del policy.rewards[:]
 	del policy.saved_log_probs[:]
@@ -158,17 +138,16 @@ def main():
 		setup = 'decentralized'
 
 	if args.env == 'rastrigin':
-		env = rastrigin.Rastrigin(dimension=dimension)
+		env = rastrigin.Rastrigin(dimension=dimension, seed=args.seed)
 	elif args.env == 'quad2d':
-		env = quadratic.Quadratic(dimension=2)
+		env = quadratic.Quadratic(dimension=2, seed=args.seed)
 	elif args.env == 'quad3d':
-		env = quadratic.Quadratic3D(dimension=3)
+		env = quadratic.Quadratic3D(dimension=3, seed=args.seed)
 	elif args.env == 'sphere':
-		env = sphere.Sphere(dimension=dimension)
+		env = sphere.Sphere(dimension=dimension, seed=args.seed)
 	else:
 		print('wrong spelling')
 		exit()
-
 
 	# initliaze multiple agents and optimizer
 	if args.gpu:
@@ -207,7 +186,7 @@ def main():
 			else:
 				actions = np.clip(actions[0], env.min_action, env.max_action)
 
-			#step through enviroment with set of actions. Reward is list of reward
+			#step through enviroment with set of actions. rewards is list of reward
 			state, rewards, done, y = env.step(actions)
 			if episode == num_episodes - 1:
 				path.append(state)
@@ -224,11 +203,11 @@ def main():
 				break
 
 		for policy, optimizer in zip(agents, optimizers):
-			finish_episode_1(policy, optimizer)
+			compute_grads(policy, optimizer)
 		if action_dim != 1:
 			agents = global_average(agents, num_agents)
 		for policy, optimizer in zip(agents, optimizers):
-			finish_episode_2(policy, optimizer)
+			update_weights(policy, optimizer)
 
 		if episode == num_episodes - 1 and args.dim == 2:
 			plot_surface.visualize(env, path, setup + ' ' + args.env)
@@ -241,7 +220,6 @@ def main():
 			y_hist = []
 			R_hist = []
 			print(f'Episode:{episode} Average reward:{avg_reward:.2f}')
-
 							
 		if episode % 100 == 0:
 			print(f'Last Action: {actions} State: {state} F(y):{y} Reward: {rewards} Done: {done}')

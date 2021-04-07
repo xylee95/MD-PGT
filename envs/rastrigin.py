@@ -7,21 +7,21 @@ from numpy import linalg as LA
 class Rastrigin(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, dimension=2):
+    def __init__(self, dimension=2, seed=0):
         #dimension of benchmark Rastrigin function
         #The function is usually evaluated on the hypercube xi ∈ [-5.12, 5.12], for all i = 1, …, d. 
+        self.seed = seed
+        np.random.seed(self.seed)
         self.dimension = dimension
-        self.min_action = -0.5
-        self.max_action = 0.5 
+        self.min_action = -0.05
+        self.max_action = 0.05 
         self.initial_pos =  np.random.uniform(low=-5.12, high=5.12, size=(self.dimension,))
         self.max_bound = 5.12
         self.min_bound = -5.12
-        self.goal_position = 0
         self.y = 1 #dummy variable
         self.prev_y = 1 #dummy
         self.action_space = spaces.Box(low=self.min_action, high=self.max_action, shape=(self.dimension,), dtype=np.float32)
         self.observation_space = spaces.Box(low=self.min_action, high=self.max_action, shape=(self.dimension,), dtype=np.float32)
-        #self.seed()
         self.done = False
         self.reward = 0
         self.reset()
@@ -41,7 +41,7 @@ class Rastrigin(gym.Env):
         return self.state, self.reward, self.done, self.y
 
     def reset(self):
-        self.state =  np.random.uniform(low=-5.12, high=5.12, size=(self.dimension,))
+        self.state =  np.random.uniform(low=-5.12, high=5.13, size=(self.dimension,))
         return np.array(self.state)
 
     def get_reward(self):
@@ -52,10 +52,10 @@ class Rastrigin(gym.Env):
         #reward = -0.1*self.y + 0.1*(self.prev_y - self.y)
 
         #r3
-        #reward = -0.1*self.y 
+        reward = -0.1*self.y 
 
         #r4
-        reward = -0.1*np.linalg.norm(self.state)
+        #reward = -0.1*np.linalg.norm(self.state)
         return reward
         
     def eval_func(self, action):
