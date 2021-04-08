@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import pfrl
 import pdb
 import envs
-from envs import rastrigin, quadratic, sphere, griewangk, styblinski_tang
+from envs import rastrigin, quadratic, sphere
 import plot_surface
 
 parser = argparse.ArgumentParser(description='PyTorch REINFORCE example')
@@ -27,9 +27,8 @@ parser.add_argument('--dim', type=int, default=1, help='Number of dimension')
 parser.add_argument('--num_agents', type=int, default=2, help='Number of agents')
 parser.add_argument('--max_eps_len', type=int, default=100, help='Number of steps per episode')
 parser.add_argument('--num_episodes', type=int, default=5000, help='Number training episodes')
-parser.add_argument('--env', type=str, default='quad2d', help='Training env',
-					choices=('rastrigin','quad2d','quad3d','sphere','griewangk','tang'))
-parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
+parser.add_argument('--env', type=str, default='quad2d', help='Training env')
+parser.add_argument('--gpu', type=bool, default=False, help='Enable gpu')
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -146,10 +145,6 @@ def main():
 		env = quadratic.Quadratic3D(dimension=3, seed=args.seed)
 	elif args.env == 'sphere':
 		env = sphere.Sphere(dimension=dimension, seed=args.seed)
-	elif args.env == 'griewangk':
-		env = griewangk.Griewangk(dimension=dimension, seed=args.seed)
-	elif args.env == 'tang':
-		env = styblinski_tang.Styblinski_Tang(dimension=dimension, seed=args.seed)
 	else:
 		print('wrong spelling')
 		exit()
@@ -178,8 +173,8 @@ def main():
 
 	for episode in range(num_episodes):
 		state = env.reset()
-		if episode == num_episodes - 1:
-			path = [state]
+		# if episode == 3566:
+		path = [state]
 		for t in range(1, max_eps_len):  # Don't infinite loop while learning
 			actions = []
 			for policy in agents:
@@ -193,8 +188,8 @@ def main():
 
 			#step through enviroment with set of actions. rewards is list of reward
 			state, rewards, done, y = env.step(actions)
-			if episode == num_episodes - 1:
-				path.append(state)
+			# if episode == 3566:
+			path.append(state)
 			for agent in agents:
 				agent.rewards.append(rewards)
 				
@@ -205,7 +200,6 @@ def main():
 				y_hist.append(y)
 				state = env.reset()
 				R = 0
-				done = False
 				break
 
 		for policy, optimizer in zip(agents, optimizers):
@@ -215,7 +209,7 @@ def main():
 		for policy, optimizer in zip(agents, optimizers):
 			update_weights(policy, optimizer)
 
-		if episode == num_episodes - 1 and args.dim == 2:
+		if episode == 3567 and args.dim == 2:
 			plot_surface.visualize(env, path, setup + ' ' + args.env)
 
 		if episode % args.log_interval == 0:

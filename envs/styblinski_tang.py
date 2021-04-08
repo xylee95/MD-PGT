@@ -41,6 +41,7 @@ class Styblinski_Tang(gym.Env):
 
     def reset(self):
         self.state =  np.random.uniform(low=-5, high=5, size=(self.dimension,))
+        self.done = False
         return np.array(self.state)
 
     def get_reward(self):

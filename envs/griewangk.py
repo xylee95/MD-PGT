@@ -41,6 +41,7 @@ class Griewangk(gym.Env):
 
     def reset(self):
         self.state =  np.random.uniform(low=-600, high=600, size=(self.dimension,))
+        self.done = False
         return np.array(self.state)
 
     def get_reward(self):

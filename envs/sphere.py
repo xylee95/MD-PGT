@@ -41,6 +41,7 @@ class Sphere(gym.Env):
 
     def reset(self):
         self.state =  np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,))
+        self.done = False
         return np.array(self.state)
 
     def get_reward(self):
