@@ -146,6 +146,10 @@ def main():
 		env = quadratic.Quadratic3D(dimension=3, seed=args.seed)
 	elif args.env == 'sphere':
 		env = sphere.Sphere(dimension=dimension, seed=args.seed)
+	elif args.env == 'griewangk':
+		env = griewangk.Griewangk(dimension=dimension, seed=args.seed)
+	elif args.env == 'tang':
+		env = styblinski_tang.Styblinski_Tang(dimension=dimension, seed=args.seed)
 	else:
 		print('wrong spelling')
 		exit()
