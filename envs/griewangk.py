@@ -3,7 +3,7 @@ from gym import error, spaces, utils
 from gym.utils import seeding
 import numpy as np
 
-class Quadratic(gym.Env):
+class Griewangk(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, dimension=2, seed=0):
@@ -14,11 +14,11 @@ class Quadratic(gym.Env):
         self.dimension = dimension
         self.min_action = -0.5
         self.max_action = 0.5 
-        self.initial_pos =  np.random.uniform(low=-10, high=10, size=(self.dimension,))
-        self.max_bound = 10
-        self.min_bound = -10
+        self.initial_pos =  np.random.uniform(low=-600, high=600, size=(self.dimension,))
+        self.max_bound = 600
+        self.min_bound = -600
         self.y = 1 #dummy variable
-        self.prev_y = 1 #dummy
+        self.prev_y = 1 #dummy variable
         self.action_space = spaces.Box(low=self.min_action, high=self.max_action, shape=(self.dimension,), dtype=np.float32)
         self.observation_space = spaces.Box(low=self.min_action, high=self.max_action, shape=(self.dimension,), dtype=np.float32)
         self.done = False
@@ -40,7 +40,7 @@ class Quadratic(gym.Env):
         return self.state, self.reward, self.done, self.y
 
     def reset(self):
-        self.state = np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,))
+        self.state =  np.random.uniform(low=-600, high=600, size=(self.dimension,))
         return np.array(self.state)
 
     def get_reward(self):
@@ -58,29 +58,19 @@ class Quadratic(gym.Env):
         return reward
         
     def eval_func(self, action):
-        # optimum at x = y = 0
         assert len(action)==self.dimension
-        y = self.state[0]**2 + 2*self.state[0]*self.state[1] + self.state[1]**2
+        # https://www.sfu.ca/~ssurjano/Griewangk.html
+        term1 = 0
+        term2 = 0
+
+        for i in range(self.dimension):
+            term1 = term1 + (self.state[i]**2)/4000
+            term2 = term2*np.cos(self.state[i]/np.sqrt(i+1))
+
+        y = term1 - term2 + 1
         return y
 
     def plot_eval_func(self, state):
+        assert len(state) == 2, "action dimension surpasses 3D for visualization purposes"
         x, y = state
-        return x**2 + 2*x*y + y**2
-
-class Quadratic3D(Quadratic):
-    """docstring for Quadratic3D"""
-    def __init__(self, dimension=3):
-        super(Quadratic3D, self).__init__(dimension=3)
-
-    def eval_func(self, action):
-        # optimum at x = -y-z
-        assert len(action)==self.dimension
-        y = self.state[0]**2 + self.state[1]**2 + self.state[2]**2 + \
-            2*self.state[0]*self.state[1] + 2*self.state[0]*self.state[2] + 2*self.state[1]*self.state[2]
-        return y
-
-    def plot_eval_func(self, state):
-        x, y, z = state
-        return x**2 + y**2 + z**2 + 2*x*y + 2*x*z + 2*y*z
-
-
+        return ((x**2 + y**2)/4000) - np.cos(x)*np.cos(y/np.sqrt(2)) + 1

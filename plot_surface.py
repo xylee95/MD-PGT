@@ -4,7 +4,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import LogNorm
 from matplotlib import animation
 
-from envs import rastrigin, quadratic, sphere
+from envs import rastrigin, quadratic, sphere, griewangk, styblinski_tang
 
 def visualize(env, path, title):
 	path = np.array(path).T

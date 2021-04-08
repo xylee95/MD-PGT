@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import pfrl
 import pdb
 import envs
-from envs import rastrigin, quadratic, sphere
+from envs import rastrigin, quadratic, sphere, griewangk, styblinski_tang
 import plot_surface
 
 parser = argparse.ArgumentParser(description='PyTorch REINFORCE example')
@@ -27,8 +27,9 @@ parser.add_argument('--dim', type=int, default=1, help='Number of dimension')
 parser.add_argument('--num_agents', type=int, default=2, help='Number of agents')
 parser.add_argument('--max_eps_len', type=int, default=100, help='Number of steps per episode')
 parser.add_argument('--num_episodes', type=int, default=5000, help='Number training episodes')
-parser.add_argument('--env', type=str, default='quad2d', help='Training env')
-parser.add_argument('--gpu', type=bool, default=False, help='Enable gpu')
+parser.add_argument('--env', type=str, default='quad2d', help='Training env',
+					choices=('rastrigin','quad2d','quad3d','sphere','griewangk','tang'))
+parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -145,6 +146,10 @@ def main():
 		env = quadratic.Quadratic3D(dimension=3, seed=args.seed)
 	elif args.env == 'sphere':
 		env = sphere.Sphere(dimension=dimension, seed=args.seed)
+	elif args.env == 'griewangk':
+		env = griewangk.Griewangk(dimension=dimension, seed=args.seed)
+	elif args.env == 'tang':
+		env = styblinski_tang.Styblinski_Tang(dimension=dimension, seed=args.seed)
 	else:
 		print('wrong spelling')
 		exit()
@@ -200,6 +205,7 @@ def main():
 				y_hist.append(y)
 				state = env.reset()
 				R = 0
+				done = False
 				break
 
 		for policy, optimizer in zip(agents, optimizers):

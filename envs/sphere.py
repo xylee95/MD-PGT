@@ -2,7 +2,6 @@ import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
 import numpy as np
-from numpy import linalg as LA
 
 class Sphere(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -66,9 +65,9 @@ class Sphere(gym.Env):
             y += self.state[i]**2
         return y
 
-    def plot_eval_func(self, action):
-        assert len(action) == 2, "action dimension surpasses 3D for visualization purposes"
-        x, y = action
+    def plot_eval_func(self, state):
+        assert len(state) == 2, "action dimension surpasses 3D for visualization purposes"
+        x, y = state
         return x**2 + y**2
 
 

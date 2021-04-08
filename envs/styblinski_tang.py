@@ -3,7 +3,7 @@ from gym import error, spaces, utils
 from gym.utils import seeding
 import numpy as np
 
-class Quadratic(gym.Env):
+class Styblinski_Tang(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, dimension=2, seed=0):
@@ -12,13 +12,13 @@ class Quadratic(gym.Env):
         self.seed = seed
         np.random.seed(self.seed)
         self.dimension = dimension
-        self.min_action = -0.5
-        self.max_action = 0.5 
-        self.initial_pos =  np.random.uniform(low=-10, high=10, size=(self.dimension,))
-        self.max_bound = 10
-        self.min_bound = -10
+        self.min_action = -0.05
+        self.max_action = 0.05 
+        self.initial_pos =  np.random.uniform(low=-5, high=5, size=(self.dimension,))
+        self.max_bound = 5
+        self.min_bound = -5
         self.y = 1 #dummy variable
-        self.prev_y = 1 #dummy
+        self.prev_y = 1 #dummy variable
         self.action_space = spaces.Box(low=self.min_action, high=self.max_action, shape=(self.dimension,), dtype=np.float32)
         self.observation_space = spaces.Box(low=self.min_action, high=self.max_action, shape=(self.dimension,), dtype=np.float32)
         self.done = False
@@ -33,14 +33,14 @@ class Quadratic(gym.Env):
         self.prev_y = self.y
         self.y = self.eval_func(action)
         self.reward = self.get_reward()
-        if np.less_equal((np.absolute(self.state)), np.ones(self.dimension)*1e-3).all():
+        if np.less_equal((np.absolute(self.state)), np.ones(self.dimension)*(-2.903534 + 1e-3)).all():
             self.done = True
             self.reward = 10
         # another termintion condition on f(y) maybe?
         return self.state, self.reward, self.done, self.y
 
     def reset(self):
-        self.state = np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,))
+        self.state =  np.random.uniform(low=-5, high=5, size=(self.dimension,))
         return np.array(self.state)
 
     def get_reward(self):
@@ -58,29 +58,15 @@ class Quadratic(gym.Env):
         return reward
         
     def eval_func(self, action):
-        # optimum at x = y = 0
         assert len(action)==self.dimension
-        y = self.state[0]**2 + 2*self.state[0]*self.state[1] + self.state[1]**2
+        #https://www.sfu.ca/~ssurjano/stybtang.html
+        summation = 0
+        for i in range(self.dimension):
+            summation = summation + self.state[i]**4 - 16*self.state[i]**2 + 5*self.state[i]
+        y = 0.5*summation    
         return y
 
     def plot_eval_func(self, state):
+        assert len(state) == 2, "state dimension surpasses 3D for visualization purposes"
         x, y = state
-        return x**2 + 2*x*y + y**2
-
-class Quadratic3D(Quadratic):
-    """docstring for Quadratic3D"""
-    def __init__(self, dimension=3):
-        super(Quadratic3D, self).__init__(dimension=3)
-
-    def eval_func(self, action):
-        # optimum at x = -y-z
-        assert len(action)==self.dimension
-        y = self.state[0]**2 + self.state[1]**2 + self.state[2]**2 + \
-            2*self.state[0]*self.state[1] + 2*self.state[0]*self.state[2] + 2*self.state[1]*self.state[2]
-        return y
-
-    def plot_eval_func(self, state):
-        x, y, z = state
-        return x**2 + y**2 + z**2 + 2*x*y + 2*x*z + 2*y*z
-
-
+        return 0.5*(x**4 - 16*(x**2) + 5*x + y**4 - 16*(y**2) + 5*y)

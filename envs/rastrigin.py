@@ -2,7 +2,6 @@ import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
 import numpy as np
-from numpy import linalg as LA
 
 class Rastrigin(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -68,30 +67,7 @@ class Rastrigin(gym.Env):
         y = A*self.dimension + sum_term
         return y
 
-    def plot_eval_func(self, action):
-        assert len(action) == 2, "action dimension surpasses 3D for visualization purposes"
-        x, y = action
+    def plot_eval_func(self, state):
+        assert len(state) == 2, "action dimension surpasses 3D for visualization purposes"
+        x, y = state
         return 10*2 + (x**2 - 10*np.cos(2*np.pi*x)) + (y**2 - 10*np.cos(2*np.pi*y))
-
-class Rastrigin2D(Rastrigin):
-    """docstring for Rastrigin2D"""
-    def __init__(self):
-        super(Rastrigin2D, self).__init__(dimension=2)
-
-
-class Rastrigin5D(Rastrigin):
-    """docstring for Rastrigin5D"""
-    def __init__(self):
-        super(Rastrigin5D, self).__init__(dimension=5)
-
-
-class Rastrigin10D(Rastrigin):
-    """docstring for Rastrigin10D"""
-    def __init__(self):
-        super(Rastrigin10D, self).__init__(dimension=10)
-
-class Rastrigin20D(Rastrigin):
-    """docstring for Rastrigin20D"""
-    def __init__(self):
-        super(Rastrigin20D, self).__init__(dimension=20)
-
