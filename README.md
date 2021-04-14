@@ -12,6 +12,7 @@ Repository for implementing decentralized PGT
 
 # To do:
 - Debug sphere
+- Try same agent initialization
 - Run one complete set experiments to compare decentralized vs centralized with different optimizers and multiple seeds for all environmens
 - Implement MD-PGT (decentralized version with gradient tracking and variance reduction)
 - Implement simple multi agent grid world?
