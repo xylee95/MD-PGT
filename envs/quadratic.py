@@ -7,8 +7,6 @@ class Quadratic(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, dimension=2, seed=0):
-        #dimension of benchmark Rastrigin function
-        #The function is usually evaluated on the hypercube xi ∈ [-5.12, 5.12], for all i = 1, …, d. 
         self.seed = seed
         np.random.seed(self.seed)
         self.dimension = dimension

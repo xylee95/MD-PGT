@@ -11,17 +11,16 @@ Repository for implementing decentralized PGT
 - (De)centralized policy gradient (PG)
 
 # To do:
-- Implement arguments to take in different opts and different reward functions
-- Compare across different optimizers (Adam, SGD, RMSProp) and reward function ( -f(x) and x)
-- Run one complete set experiments to compare decentralized vs centralized for all enviroment once before moving to MD-PGT
+- Debug sphere
+- Run one complete set experiments to compare decentralized vs centralized with different optimizers and multiple seeds for all environmens
 - Implement MD-PGT (decentralized version with gradient tracking and variance reduction)
-- Implement more test functions (Complex convex functions, Griewank, Etc)
+- Implement simple multi agent grid world?
 - Enforce different topology for decentralized agents
 
 # Bugs to fix:
 - Need to modify contour plotting code to account for different envs below:
 - Griewangk domain ranges from -600 to 600
-- Styblinski-Tang minima is at -39.16599xd and domain ranges from -5 to 5
+- Styblinski-Tang minima is at f(x) = -39.16599 x d and x = (-2.903534,...) and domain ranges from -5 to 5
 
 
 # Notes:

@@ -7,8 +7,8 @@ class Griewangk(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, dimension=2, seed=0):
-        #dimension of benchmark Rastrigin function
-        #The function is usually evaluated on the hypercube xi ∈ [-5.12, 5.12], for all i = 1, …, d. 
+        #dimension of benchmark Griewangk function
+        #The function is usually evaluated on the hypercube xi ∈ [-600, 600], for all i = 1, …, d. 
         self.seed = seed
         np.random.seed(self.seed)
         self.dimension = dimension
@@ -40,7 +40,7 @@ class Griewangk(gym.Env):
         return self.state, self.reward, self.done, self.y
 
     def reset(self):
-        self.state =  np.random.uniform(low=-600, high=600, size=(self.dimension,))
+        self.state =  np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,))
         self.done = False
         return np.array(self.state)
 

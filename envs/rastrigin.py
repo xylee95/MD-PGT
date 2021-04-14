@@ -40,7 +40,7 @@ class Rastrigin(gym.Env):
         return self.state, self.reward, self.done, self.y
 
     def reset(self):
-        self.state =  np.random.uniform(low=-5.12, high=5.13, size=(self.dimension,))
+        self.state =  np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,))
         self.done = False
         return np.array(self.state)
 
