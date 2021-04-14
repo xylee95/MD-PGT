@@ -249,7 +249,7 @@ def main():
 	plt.ylabel('Reward')
 	plt.xlabel('Episodes')
 	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env)
-	plt.savefig(str(dimension) + '-d ' + setup + ' ' + args.env + '_R.jpg')
+	plt.savefig(str(dimension) + '-d ' + setup + ' ' + args.env + '_' + args.opt + '_R.jpg')
 	plt.close()
 
 	plt.figure()
@@ -257,7 +257,7 @@ def main():
 	plt.ylabel('F(y)')
 	plt.xlabel('Episodes')
 	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env)
-	plt.savefig(str(dimension) + '-d ' + setup + ' ' + args.env + '_Y.jpg')
+	plt.savefig(str(dimension) + '-d ' + setup + ' ' + args.env + '_' + args.opt + '_Y.jpg')
 
 if __name__ == '__main__':
 	main()
