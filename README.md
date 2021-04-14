@@ -2,7 +2,7 @@
 Repository for implementing decentralized PGT
 
 # Available Environments
-- Quadratic 2D and 3D
+- Quadratic 2D, 3D and 10D
 - Rastrigin
 - Griewangk
 - Styblinski-Tang
@@ -11,6 +11,8 @@ Repository for implementing decentralized PGT
 - (De)centralized policy gradient (PG)
 
 # To do:
+- Implement arguments to take in different opts and different reward functions
+- Compare across different optimizers (Adam, SGD, RMSProp) and reward function ( -f(x) and x)
 - Run one complete set experiments to compare decentralized vs centralized for all enviroment once before moving to MD-PGT
 - Implement MD-PGT (decentralized version with gradient tracking and variance reduction)
 - Implement more test functions (Complex convex functions, Griewank, Etc)
