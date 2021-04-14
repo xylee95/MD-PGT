@@ -42,7 +42,7 @@ class Policy(nn.Module):
 		super(Policy, self).__init__()
 		self.dense1 = nn.Linear(state_dim, 128)
 		self.dense2 = nn.Linear(128, 64)
-		self.dense3 = nn.Linear(64, 1)
+		self.dense3 = nn.Linear(64, action_dim)
 		self.distribution = pfrl.policies.GaussianHeadWithStateIndependentCovariance(
 			action_size=action_dim,
 			var_type="diagonal",

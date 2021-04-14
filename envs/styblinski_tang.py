@@ -33,7 +33,7 @@ class Styblinski_Tang(gym.Env):
         self.prev_y = self.y
         self.y = self.eval_func(action)
         self.reward = self.get_reward()
-        if np.less_equal((np.absolute(self.state - np.ones(self.dimension)*(-2.903534))), np.ones(self.dimension)*(1e-3)).all() 
+        if np.less_equal((np.absolute(self.state - np.ones(self.dimension)*(-2.903534))), np.ones(self.dimension)*(1e-3)).all(): 
             self.done = True
             self.reward = 10
         # another termintion condition on f(y) maybe?
