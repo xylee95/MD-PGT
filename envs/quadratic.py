@@ -70,7 +70,7 @@ class Quadratic(gym.Env):
 
 class Quadratic3D(Quadratic):
     """docstring for Quadratic3D"""
-    def __init__(self, dimension=3):
+    def __init__(self, dimension=3, seed=0):
         super(Quadratic3D, self).__init__(dimension=3)
 
     def eval_func(self, action):
@@ -84,4 +84,16 @@ class Quadratic3D(Quadratic):
         x, y, z = state
         return x**2 + y**2 + z**2 + 2*x*y + 2*x*z + 2*y*z
 
+class Quadratic10D(Quadratic):
+    """docstring for Quadratic3D"""
+    def __init__(self, dimension=10, seed=0):
+        super(Quadratic10D, self).__init__(dimension=10)
+
+    def eval_func(self, action):
+        # optimum at x = -y-z
+        assert len(action)==self.dimension
+    
+        A = np.ones((10,10))
+        y = np.matmul(np.matmul(self.state, A), np.transpose(self.state))
+        return y
 

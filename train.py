@@ -28,7 +28,7 @@ parser.add_argument('--num_agents', type=int, default=2, help='Number of agents'
 parser.add_argument('--max_eps_len', type=int, default=100, help='Number of steps per episode')
 parser.add_argument('--num_episodes', type=int, default=5000, help='Number training episodes')
 parser.add_argument('--env', type=str, default='quad2d', help='Training env',
-					choices=('rastrigin','quad2d','quad3d','sphere','griewangk','tang'))
+					choices=('rastrigin','quad2d','quad3d', 'quad10d', 'sphere','griewangk','tang'))
 parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
 args = parser.parse_args()
 
@@ -135,6 +135,7 @@ def main():
 		action_dim = dimension
 		setup = 'centralized'
 	else:
+		assert num_agents > 1
 		action_dim = 1
 		setup = 'decentralized'
 
@@ -144,6 +145,8 @@ def main():
 		env = quadratic.Quadratic(dimension=2, seed=args.seed)
 	elif args.env == 'quad3d':
 		env = quadratic.Quadratic3D(dimension=3, seed=args.seed)
+	elif args.env == 'quad10d':
+		env = quadratic.Quadratic10D(dimension=10, seed=args.seed)
 	elif args.env == 'sphere':
 		env = sphere.Sphere(dimension=dimension, seed=args.seed)
 	elif args.env == 'griewangk':
@@ -151,7 +154,7 @@ def main():
 	elif args.env == 'tang':
 		env = styblinski_tang.Styblinski_Tang(dimension=dimension, seed=args.seed)
 	else:
-		print('wrong spelling')
+		print('Wrong spelling')
 		exit()
 
 	# initliaze multiple agents and optimizer
@@ -209,7 +212,7 @@ def main():
 
 		for policy, optimizer in zip(agents, optimizers):
 			compute_grads(policy, optimizer)
-		if action_dim != 1:
+		if num_agents > 1:
 			agents = global_average(agents, num_agents)
 		for policy, optimizer in zip(agents, optimizers):
 			update_weights(policy, optimizer)
