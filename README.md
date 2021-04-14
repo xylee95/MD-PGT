@@ -18,6 +18,7 @@ Repository for implementing decentralized PGT
 - Enforce different topology for decentralized agents
 
 # Bugs to fix:
+- Debug sphere centralized PG
 - Need to modify contour plotting code to account for different envs below:
 - Griewangk domain ranges from -600 to 600
 - Styblinski-Tang minima is at f(x) = -39.16599 x d and x = (-2.903534,...) and domain ranges from -5 to 5
