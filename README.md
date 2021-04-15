@@ -10,12 +10,28 @@ Repository for implementing decentralized PGT
 # Available Agents
 - (De)centralized policy gradient (PG)
 
+# Running Codes
+- Centralized
+~~~
+python train.py --num_agents 2 --dim 2 --env rastrigin --num_episodes 20
+~~~
+- Decentralized
+~~~
+python -m torch.distributed.launch --nnodes 1 --nproc_per_node 2 dist_train.py --dim 2 --env rastrigin --num_episodes 20
+~~~
+
 # To do:
 - Try same agent initialization
 - Run one complete set experiments to compare decentralized vs centralized with different optimizers and multiple seeds for all environmens
 - Implement MD-PGT (decentralized version with gradient tracking and variance reduction)
 - Implement simple multi agent grid world?
 - Enforce different topology for decentralized agents
+
+# Decentralized To do:
+- Try other env
+- Verify performance
+- Fix seed?
+- Verify path=[state]
 
 # Bugs to fix:
 - Need to modify contour plotting code to account for different envs below:
