@@ -157,20 +157,6 @@ class SGD_GT(Optimizer):
                 if p.grad is None:
                     continue
                 d_p = p.grad
-                if weight_decay != 0:
-                    d_p = d_p.add(p, alpha=weight_decay)
-                if momentum != 0:
-                    param_state = self.state[p]
-                    if 'momentum_buffer' not in param_state:
-                        buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
-                    else:
-                        buf = param_state['momentum_buffer']
-                        buf.mul_(momentum).add_(d_p, alpha=1 - dampening)
-                    if nesterov:
-                        d_p = d_p.add(buf, alpha=momentum)
-                    else:
-                        d_p = buf
-
                 p.add_(d_p, alpha=-group['lr'])
 
         return loss
