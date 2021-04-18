@@ -24,6 +24,8 @@ class Styblinski_Tang(gym.Env):
         self.done = False
         self.reward = 0
         self.reset()
+        # only used for contour plotting purposes for 2D
+        self.minima = np.array([-2.903534,-2.903534])*2
         
     def step(self, action):
         #action is vector of delta

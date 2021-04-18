@@ -8,11 +8,11 @@ from envs import rastrigin, quadratic, sphere, griewangk, styblinski_tang
 
 def visualize(env, path, title):
 	path = np.array(path).T
-	minima = np.array([0., 0.])
+	minima = env.minima
 	minima_ = minima.reshape(-1, 1)
 
-	xmin, xmax, xstep = -5.12, 5.12, .2
-	ymin, ymax, ystep = -5.12, 5.12, .2
+	xmin, xmax, xstep = env.min_bound, env.max_bound, .2
+	ymin, ymax, ystep = env.min_bound, env.max_bound, .2
 
 	x, y = np.meshgrid(np.arange(xmin, xmax + xstep, xstep), np.arange(ymin, ymax + ystep, ystep))
 	z = env.plot_eval_func([x,y])
@@ -21,7 +21,7 @@ def visualize(env, path, title):
 	fig = plt.figure(figsize=(8, 5))
 	ax = plt.axes(projection='3d', elev=50, azim=-50)
 
-	ax.plot_surface(x, y, z, norm=LogNorm(), rstride=1, cstride=1, 
+	ax.plot_surface(x, y, z, rstride=1, cstride=1, 
 	                edgecolor='none', alpha=.8, cmap=plt.cm.jet)
 	ax.quiver(path[0,:-1], path[1,:-1], env.plot_eval_func(path[::,:-1]), 
 	          path[0,1:]-path[0,:-1], path[1,1:]-path[1,:-1], env.plot_eval_func((path[::,1:]-path[::,:-1])), 
@@ -38,10 +38,9 @@ def visualize(env, path, title):
 	plt.savefig('3d surface ' + title + '.jpg')
 
 	# contour plot
-
 	fig, ax = plt.subplots(figsize=(10, 6))
 
-	ax.contour(x, y, z, levels=np.logspace(0, 5, 35), norm=LogNorm(), cmap=plt.cm.jet)
+	ax.contour(x, y, z, cmap=plt.cm.jet)
 	ax.quiver(path[0,:-1], path[1,:-1], path[0,1:]-path[0,:-1], path[1,1:]-path[1,:-1], scale_units='xy', angles='xy', scale=1, color='k')
 	ax.plot(*minima_, 'r*', markersize=18)
 

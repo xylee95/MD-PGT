@@ -14,9 +14,9 @@ class Griewangk(gym.Env):
         self.dimension = dimension
         self.min_action = -0.5
         self.max_action = 0.5 
-        self.initial_pos =  np.random.uniform(low=-600, high=600, size=(self.dimension,))
-        self.max_bound = 600
-        self.min_bound = -600
+        self.max_bound = 25
+        self.min_bound = -25
+        self.initial_pos =  np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,))
         self.y = 1 #dummy variable
         self.prev_y = 1 #dummy variable
         self.action_space = spaces.Box(low=self.min_action, high=self.max_action, shape=(self.dimension,), dtype=np.float32)
@@ -24,7 +24,9 @@ class Griewangk(gym.Env):
         self.done = False
         self.reward = 0
         self.reset()
-        
+        # only used for contour plotting purposes for 2D
+        self.minima = np.array([0,0])
+
     def step(self, action):
         #action is vector of delta
         action = action[0].detach().numpy()

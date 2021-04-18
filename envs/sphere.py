@@ -22,6 +22,9 @@ class Sphere(gym.Env):
         self.done = False
         self.reward = 0
         self.reset()
+        # only used for contour plotting purposes for 2D
+        self.minima = np.array([0,0])
+
         
     def step(self, action):
         #action is vector of delta
