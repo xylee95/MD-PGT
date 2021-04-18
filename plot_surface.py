@@ -11,7 +11,7 @@ from envs import rastrigin, quadratic, sphere, griewangk, styblinski_tang
 
 def visualize(env, path, fpath, title):
 	writergif = animation.PillowWriter(fps=30)
-	fpath = os.path.split(fpath)[0]
+	fpath = os.path.split(os.path.split(fpath)[0])[0]
 	path = np.array(path).T
 	minima = env.minima
 	minima_ = minima.reshape(-1, 1)

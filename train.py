@@ -138,12 +138,12 @@ def main():
 	if num_agents == 1:
 		action_dim = dimension
 		setup = 'centralized'
-		fpath = os.path.join('results', setup, args.env, str(args.dim) + 'D')
+		fpath = os.path.join('results', setup, args.env, str(dimension) + 'D', args.opt)
 	else:
 		assert num_agents > 1
 		action_dim = 1
 		setup = 'decentralized'
-		fpath = os.path.join('results', setup, args.env, str(args.dim) + 'D')
+		fpath = os.path.join('results', setup, args.env, str(dimension) + 'D', args.opt)
 
 	if not os.path.isdir(fpath):
 		os.makedirs(fpath)
@@ -235,7 +235,7 @@ def main():
 		for policy, optimizer in zip(agents, optimizers):
 			update_weights(policy, optimizer)
 
-		if episode == num_episodes - 1 and args.dim == 2:
+		if episode == num_episodes - 1 and dimension == 2:
 			plot_surface.visualize(env, path, fpath, setup + ' ' + args.env)
 
 		if episode % args.log_interval == 0:
