@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -6,7 +7,8 @@ from matplotlib import animation
 
 from envs import rastrigin, quadratic, sphere, griewangk, styblinski_tang
 
-def visualize(env, path, title):
+def visualize(env, path, fpath, title):
+	fpath = os.path.split(fpath)[0]
 	path = np.array(path).T
 	minima = env.minima
 	minima_ = minima.reshape(-1, 1)
@@ -35,7 +37,7 @@ def visualize(env, path, title):
 	ax.set_xlim((xmin, xmax))
 	ax.set_ylim((ymin, ymax))
 
-	plt.savefig('3d surface ' + title + '.jpg')
+	plt.savefig(os.path.join(fpath, 'Surface ' + title + '.jpg'))
 
 	# contour plot
 	fig, ax = plt.subplots(figsize=(10, 6))
@@ -50,7 +52,7 @@ def visualize(env, path, title):
 	ax.set_xlim((xmin, xmax))
 	ax.set_ylim((ymin, ymax))
 
-	plt.savefig('2d contour ' + title + '.jpg')
+	plt.savefig(os.path.join(fpath, 'Contour ' + title + '.jpg'))
 
 if __name__ == '__main__':
 	path = np.array([(5.,5.), (4., 4.,), (3., 3.), (2., 2.), (1., 1.),]).T

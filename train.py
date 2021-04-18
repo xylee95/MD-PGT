@@ -1,5 +1,6 @@
 import argparse
 import gym
+import os
 import numpy as np
 from itertools import count
 
@@ -137,10 +138,15 @@ def main():
 	if num_agents == 1:
 		action_dim = dimension
 		setup = 'centralized'
+		fpath = os.path.join('results', setup, args.env, str(args.dim) + 'D')
 	else:
 		assert num_agents > 1
 		action_dim = 1
 		setup = 'decentralized'
+		fpath = os.path.join('results', setup, args.env, str(args.dim) + 'D')
+
+	if not os.path.isdir(fpath):
+		os.makedirs(fpath)
 
 	if args.env == 'rastrigin':
 		env = rastrigin.Rastrigin(dimension=dimension, seed=args.seed)
@@ -230,7 +236,7 @@ def main():
 			update_weights(policy, optimizer)
 
 		if episode == num_episodes - 1 and args.dim == 2:
-			plot_surface.visualize(env, path, setup + ' ' + args.env)
+			plot_surface.visualize(env, path, fpath, setup + ' ' + args.env)
 
 		if episode % args.log_interval == 0:
 			avg_reward = np.sum(R_hist)/len(R_hist)
@@ -248,16 +254,19 @@ def main():
 	plt.plot(R_hist_plot)
 	plt.ylabel('Reward')
 	plt.xlabel('Episodes')
-	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env)
-	plt.savefig(str(dimension) + '-d ' + setup + ' ' + args.env + '_' + args.opt + '_R.jpg')
+	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + ' ' + str(args.seed))
+	plt.savefig(os.path.join(fpath, str(args.seed) + '_R.jpg'))
 	plt.close()
 
 	plt.figure()
 	plt.plot(y_hist_plot)
 	plt.ylabel('F(y)')
 	plt.xlabel('Episodes')
-	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env)
-	plt.savefig(str(dimension) + '-d ' + setup + ' ' + args.env + '_' + args.opt + '_Y.jpg')
+	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + ' ' + str(args.seed))
+	plt.savefig(os.path.join(fpath, str(args.seed) + '_Y.jpg'))
+
+	np.save(os.path.join(os.path.join(fpath, 'R_array_' + str(args.seed) + '.npy')), R_hist_plot)
+	np.save(os.path.join(os.path.join(fpath, 'Y_array_' + str(args.seed) + '.npy')), y_hist_plot)
 
 if __name__ == '__main__':
 	main()
