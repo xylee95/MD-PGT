@@ -34,9 +34,7 @@ python -m torch.distributed.launch --nnodes 1 --nproc_per_node 2 dist_train.py -
 - Verify path=[state]
 
 # Bugs to fix:
-- Need to modify contour plotting code to account for different envs below:
-- Griewangk domain ranges from -600 to 600
-- Styblinski-Tang minima is at f(x) = -39.16599 x d and x = (-2.903534,...) and domain ranges from -5 to 5
+
 
 
 # Notes:
