@@ -62,7 +62,10 @@ class Policy(nn.Module):
 		return dist
 
 def select_action(state, policy):
-	state = torch.from_numpy(np.array(state)).float().unsqueeze(0)
+	try:
+		state = torch.from_numpy(np.array(state)).float().unsqueeze(0)
+	except:
+		pass
 	dist = policy(state)
 	action = dist.sample()
 	policy.saved_log_probs.append(dist.log_prob(action))
@@ -199,6 +202,7 @@ def main():
 
 	for episode in range(num_episodes):
 		state = env.reset()
+		state = torch.FloatTensor(state).to(device)
 		if episode == num_episodes - 1:
 			path = [state]
 		for t in range(1, max_eps_len):  # Don't infinite loop while learning
@@ -219,6 +223,7 @@ def main():
 			for agent in agents:
 				agent.rewards.append(rewards)
 				
+			state = torch.FloatTensor(state).to(device)
 			R += rewards
 			reset = t == max_eps_len-1
 			if done or reset:
@@ -236,6 +241,7 @@ def main():
 			update_weights(policy, optimizer)
 
 		if episode == num_episodes - 1 and dimension == 2:
+			path.pop(0)
 			plot_surface.visualize(env, path, fpath, setup + ' ' + args.env)
 
 		if episode % args.log_interval == 0:
