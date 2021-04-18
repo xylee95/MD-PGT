@@ -31,8 +31,8 @@ parser.add_argument('--num_episodes', type=int, default=5000, help='Number train
 parser.add_argument('--env', type=str, default='quad2d', help='Training env',
 					choices=('rastrigin','quad2d','quad3d', 'quad10d', 'sphere','griewangk','tang'))
 parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
-parser.add_argument('--opt', type=str, default='Adam', help='Optimizer',
-					choices=('Adam', 'SGD', 'RMSProp'))
+parser.add_argument('--opt', type=str, default='sgd', help='Optimizer',
+					choices=('adam', 'sgd', 'rmsprop'))
 
 args = parser.parse_args()
 
@@ -177,18 +177,18 @@ def main():
 
 	agents = []
 	optimizers = []
-	if args.opt == 'Adam':
+	if args.opt == 'adam':
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension, action_dim=action_dim).to(device))
 			optimizers.append(optim.Adam(agents[i].parameters(), lr=3e-4))
-	elif args.opt == 'SGD':
+	elif args.opt == 'sgd':
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension, action_dim=action_dim).to(device))
 			optimizers.append(optim.SGD(agents[i].parameters(), lr=3e-4))
-	elif args.opt == 'RMSProp':
+	elif args.opt == 'rmsprop':
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension, action_dim=action_dim).to(device))
-			optimizers.append(optim.RMSProp(agents[i].parameters(), lr=3e-4))
+			optimizers.append(optim.RMSprop(agents[i].parameters(), lr=3e-4))
 
 	# RL setup
 	num_episodes = args.num_episodes
