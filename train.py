@@ -33,6 +33,7 @@ parser.add_argument('--env', type=str, default='quad2d', help='Training env',
 parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
 parser.add_argument('--opt', type=str, default='sgd', help='Optimizer',
 					choices=('adam', 'sgd', 'rmsprop'))
+parser.add_argument('--momentum', type=float, default=0.0, help='Momentum term for SGD')
 
 args = parser.parse_args()
 
@@ -184,7 +185,7 @@ def main():
 	elif args.opt == 'sgd':
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension, action_dim=action_dim).to(device))
-			optimizers.append(optim.SGD(agents[i].parameters(), lr=3e-4))
+			optimizers.append(optim.SGD(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
 	elif args.opt == 'rmsprop':
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension, action_dim=action_dim).to(device))
