@@ -34,7 +34,7 @@ python -m torch.distributed.launch --nnodes 1 --nproc_per_node 2 dist_train.py -
 - Verify path=[state]
 
 # Bugs to fix:
-
+- Include optimizer namestring in animation generated
 
 
 # Notes:
