@@ -243,7 +243,7 @@ def main():
 
 		if episode == num_episodes - 1 and dimension == 2:
 			path.pop(0)
-			plot_surface.visualize(env, path, fpath, setup + ' ' + args.env)
+			plot_surface.visualize(env, path, fpath, setup + ' ' + args.env + '' + args.opt)
 
 		if episode % args.log_interval == 0:
 			avg_reward = np.sum(R_hist)/len(R_hist)
@@ -261,7 +261,7 @@ def main():
 	plt.plot(R_hist_plot)
 	plt.ylabel('Reward')
 	plt.xlabel('Episodes')
-	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + ' ' + str(args.seed))
+	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
 	plt.savefig(os.path.join(fpath, str(args.seed) + '_R.jpg'))
 	plt.close()
 
@@ -269,7 +269,7 @@ def main():
 	plt.plot(y_hist_plot)
 	plt.ylabel('F(y)')
 	plt.xlabel('Episodes')
-	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + ' ' + str(args.seed))
+	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
 	plt.savefig(os.path.join(fpath, str(args.seed) + '_Y.jpg'))
 
 	np.save(os.path.join(os.path.join(fpath, 'R_array_' + str(args.seed) + '.npy')), R_hist_plot)
