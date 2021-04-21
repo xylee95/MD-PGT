@@ -34,8 +34,8 @@ python -m torch.distributed.launch --nnodes 1 --nproc_per_node 2 dist_train.py -
 - Verify path=[state]
 
 # Bugs to fix:
-- Include optimizer namestring in animation generated
-
+- decentralized agents not doing very well in high-D and low-D non-convex, add entropy bonus
+- implement gridworld
 
 # Notes:
 - For convex functions (quadratic and sphere), reward of -F(x) works well
