@@ -139,6 +139,8 @@ def update_weights(policy, optimizer):
 
 # unoptimized version
 def compute_IS_weight(action_list, state_list, cur_policy, old_policy):
+	num_list = []
+	denom_list = []
 	weight_list = []
 	# for each policy
 	for i in range(len(old_policy)):
@@ -172,8 +174,10 @@ def compute_IS_weight(action_list, state_list, cur_policy, old_policy):
 
 		weight = prob_old_tau / (prob_tau + 1e-8)
 		weight_list.append(weight)
+		num_list.append(prob_old_tau)
+		denom_list.append(prob_tau)
 	
-	return weight_list
+	return weight_list, num_list, denom_list
 
 
 def main():
@@ -248,6 +252,8 @@ def main():
 	R_hist_plot = []
 	y_hist_plot = []
 	isw_plot = []
+	num_plot = []
+	denom_plot = []
 
 	for episode in range(num_episodes):
 		state = env.reset()
@@ -288,7 +294,7 @@ def main():
 				break
 
 		if episode == 0:
-			isw = compute_IS_weight(action_list, state_list, agents, old_agents)
+			isw, num, denom = compute_IS_weight(action_list, state_list, agents, old_agents)
 			print(isw)
 
 		for policy, optimizer in zip(agents, optimizers):
@@ -300,9 +306,12 @@ def main():
 		for policy, optimizer in zip(agents, optimizers):
 			update_weights(policy, optimizer)
 
-		isw = compute_IS_weight(action_list, state_list, agents, old_agents)
+		isw, num, denom = compute_IS_weight(action_list, state_list, agents, old_agents)
 		print(isw)
 		isw_plot.append(isw)
+		num_plot.append(num)
+		denom_plot.append(denom)
+
 		#update old_agents to current agent
 		action_list = []
 		state_list = []
@@ -340,6 +349,9 @@ def main():
 	plt.savefig(os.path.join(fpath, str(args.seed) + '_Y.jpg'))
 
 	isw_plot = np.array(isw_plot)
+	num_plot = np.array(num_plot)
+	denom_plot = np.array(denom_plot)
+
 	plt.figure()
 	for i in range(num_agents):
 		plt.plot(isw_plot[:,i], label='Agent' + str(i))
@@ -348,6 +360,25 @@ def main():
 	plt.xlabel('Episodes')
 	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
 	plt.savefig(os.path.join(fpath, str(args.seed) + '_ISW.jpg'))
+
+	plt.figure()
+	for i in range(num_agents):
+		plt.plot(num_plot[:,i], label='Agent' + str(i))
+	plt.legend()
+	plt.ylabel('Importance Sampling Weight (Numerator)')
+	plt.xlabel('Episodes')
+	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
+	plt.savefig(os.path.join(fpath, str(args.seed) + '_ISW_num.jpg'))
+
+
+	plt.figure()
+	for i in range(num_agents):
+		plt.plot(denom_plot[:,i], label='Agent' + str(i))
+	plt.legend()
+	plt.ylabel('Importance Sampling Weight (Denominator)')
+	plt.xlabel('Episodes')
+	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
+	plt.savefig(os.path.join(fpath, str(args.seed) + '_ISW_denom.jpg'))
 
 	np.save(os.path.join(os.path.join(fpath, 'R_array_' + str(args.seed) + '.npy')), R_hist_plot)
 	np.save(os.path.join(os.path.join(fpath, 'Y_array_' + str(args.seed) + '.npy')), y_hist_plot)
