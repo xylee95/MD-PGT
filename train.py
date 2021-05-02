@@ -18,6 +18,8 @@ import envs
 from envs import rastrigin, quadratic, sphere, griewangk, styblinski_tang
 import plot_surface
 
+import time, datetime
+
 parser = argparse.ArgumentParser(description='PyTorch REINFORCE example')
 parser.add_argument('--gamma', type=float, default=0.99,
 					help='discount factor (default: 0.99)')
@@ -201,7 +203,9 @@ def main():
 	R_hist_plot = []
 	y_hist_plot = []
 
+	train_start = time.time()
 	for episode in range(num_episodes):
+		ep_start = time.time()
 		state = env.reset()
 		state = torch.FloatTensor(state).to(device)
 		if episode == num_episodes - 1:
@@ -255,8 +259,13 @@ def main():
 			print(f'Episode:{episode} Average reward:{avg_reward:.2f}')
 							
 		if episode % 100 == 0:
+			ep_time = datetime.timedelta(seconds=time.time() - ep_start)
+			print(f'Episode {episode} elapsed time: %s s' % (ep_time))
 			print(f'Last Action: {actions} State: {state} F(y):{y} Reward: {rewards} Done: {done}')
 
+	total_time = datetime.timedelta(seconds=time.time() - train_start)
+	print(f'Total elapsed time: %s s' % (total_time))
+	
 	plt.figure()
 	plt.plot(R_hist_plot)
 	plt.ylabel('Reward')
