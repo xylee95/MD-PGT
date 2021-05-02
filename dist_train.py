@@ -1,3 +1,4 @@
+import os
 import argparse
 import gym
 import numpy as np
@@ -18,9 +19,15 @@ from envs import rastrigin, quadratic, sphere, griewangk, styblinski_tang
 import plot_surface
 
 import torch.distributed as dist
+import time, datetime
 
 import warnings
 warnings.filterwarnings("ignore")
+
+# os.environ['OMP_NUM_THREADS'] = '5'
+
+
+opt_list = {'adam': optim.Adam, 'sgd': optim.SGD, 'rmsprop': optim.RMSprop}
 
 parser = argparse.ArgumentParser(description='PyTorch REINFORCE example')
 parser.add_argument('--gamma', type=float, default=0.99,
@@ -33,6 +40,9 @@ parser.add_argument('--max_eps_len', type=int, default=100, help='Number of step
 parser.add_argument('--num_episodes', type=int, default=5000, help='Number training episodes')
 parser.add_argument('--env', type=str, default='quad2d', help='Training env',
 					choices=('rastrigin','quad2d','quad3d', 'quad10d', 'sphere','griewangk','tang'))
+parser.add_argument('--opt', type=str, default='sgd', help='Optimizer',
+					choices=('adam', 'sgd', 'rmsprop'))
+parser.add_argument('--momentum', type=float, default=0.0, help='Momentum term for SGD')
 
 parser.add_argument('--gpu', action='store_true', default=False, help='Enable GPU')
 
@@ -41,14 +51,14 @@ parser.add_argument('--local_rank', type=int, help='Required argument for torch.
 
 args = parser.parse_args()
 
-torch.manual_seed(args.seed)
+# torch.manual_seed(args.seed)
 
 class Policy(nn.Module):
 	def __init__(self, state_dim, action_dim):
 		super(Policy, self).__init__()
 		self.dense1 = nn.Linear(state_dim, 128)
 		self.dense2 = nn.Linear(128, 64)
-		self.dense3 = nn.Linear(64, 1)
+		self.dense3 = nn.Linear(64, action_dim)
 		self.distribution = pfrl.policies.GaussianHeadWithStateIndependentCovariance(
 			action_size=action_dim,
 			var_type="diagonal",
@@ -67,7 +77,10 @@ class Policy(nn.Module):
 		return dist
 
 def select_action(state, policy):
-	state = torch.from_numpy(np.array(state)).float().unsqueeze(0)
+	try:
+		state = torch.from_numpy(np.array(state)).float().unsqueeze(0)
+	except:
+		pass
 	dist = policy(state)
 	action = dist.sample()
 	policy.saved_log_probs.append(dist.log_prob(action))
@@ -117,6 +130,9 @@ def main():
 	# Dist. "Hello World" variables
 	wsize = dist.get_world_size()
 	rank = dist.get_rank()
+
+	torch.manual_seed(rank)
+
 	# Fully connected pi
 	if wsize > 1:
 		pi = [1/wsize for _ in range(wsize)]
@@ -132,6 +148,10 @@ def main():
 		setup = 'decentralized'
 
 	if rank == 0: # Single/First agent only
+		fpath = os.path.join('results', setup, args.env, str(dimension) + 'D', args.opt)
+
+		if not os.path.isdir(fpath):
+			os.makedirs(fpath)
 
 		# initialize env
 		if args.env == 'rastrigin':
@@ -160,7 +180,11 @@ def main():
 
 	# initliaze multiple agents(policy) and optimizer
 	policy = Policy(state_dim=dimension, action_dim=action_dim).to(device)
-	optimizer = optim.Adam(policy.parameters(), lr=3e-4)
+	# optimizer = optim.Adam(policy.parameters(), lr=3e-4)
+	if args.opt=='sgd':
+		optimizer = opt_list[args.opt](policy.parameters(), lr=3e-4, momentum=args.momentum)
+	else:
+		optimizer = opt_list[args.opt](policy.parameters(), lr=3e-4)
 
 	# RL setup
 	num_episodes = args.num_episodes
@@ -172,7 +196,9 @@ def main():
 	R_hist_plot = []
 	y_hist_plot = []
 
+	train_start = time.time()
 	for episode in range(num_episodes):
+		ep_start = time.time()
 		state = torch.tensor([0.0 for _ in range(dimension)], dtype=torch.float64) # Initialize placeholder across agents
 		if rank == 0:
 			state = env.reset()
@@ -261,7 +287,8 @@ def main():
 		# Logging and misc. only on agent 0
 		if rank == 0:
 			if episode == num_episodes - 1 and args.dim == 2:
-				plot_surface.visualize(env, path, setup + ' ' + args.env)
+				path.pop(0)
+				plot_surface.visualize(env, path, fpath, setup + ' ' + args.env + '' + args.opt)
 
 			if episode % args.log_interval == 0:
 				avg_reward = np.sum(R_hist)/len(R_hist)
@@ -273,25 +300,33 @@ def main():
 				print(f'Episode:{episode} Average reward:{avg_reward:.2f}')
 								
 			if episode % 100 == 0:
+				ep_time = datetime.timedelta(seconds=time.time() - ep_start)
+				print(f'Episode {episode} elapsed time: %s s' % (ep_time))
 				print(f'Last Action: {actions} State: {state} F(y):{y} Reward: {rewards} Done: {done}')
 		else:
 			pass
 
 	if rank == 0:
+		total_time = datetime.timedelta(seconds=time.time() - train_start)
+		print(f'Total elapsed time: %s s' % (total_time))
+
 		plt.figure()
 		plt.plot(R_hist_plot)
 		plt.ylabel('Reward')
 		plt.xlabel('Episodes')
-		plt.title(str(dimension) + '-d ' + setup + ' ' + args.env)
-		plt.savefig(str(dimension) + '-d ' + setup + ' ' + args.env + '_R.jpg')
+		plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
+		plt.savefig(os.path.join(fpath, str(args.seed) + '_R.jpg'))
 		plt.close()
 
 		plt.figure()
 		plt.plot(y_hist_plot)
 		plt.ylabel('F(y)')
 		plt.xlabel('Episodes')
-		plt.title(str(dimension) + '-d ' + setup + ' ' + args.env)
-		plt.savefig(str(dimension) + '-d ' + setup + ' ' + args.env + '_Y.jpg')
+		plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
+		plt.savefig(os.path.join(fpath, str(args.seed) + '_Y.jpg'))
+
+		np.save(os.path.join(os.path.join(fpath, 'R_array_' + str(args.seed) + '.npy')), R_hist_plot)
+		np.save(os.path.join(os.path.join(fpath, 'Y_array_' + str(args.seed) + '.npy')), y_hist_plot)
 
 if __name__ == '__main__':
 	main()
