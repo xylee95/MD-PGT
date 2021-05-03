@@ -46,14 +46,7 @@ class Policy(nn.Module):
 		super(Policy, self).__init__()
 		self.dense1 = nn.Linear(state_dim, 128)
 		self.dense2 = nn.Linear(128, 64)
-		self.dense3 = nn.Linear(64, action_dim)
-		self.distribution = pfrl.policies.GaussianHeadWithStateIndependentCovariance(
-			action_size=action_dim,
-			var_type="diagonal",
-			var_func=lambda x: torch.exp(2 * x),  # Parameterize log std
-			var_param_init=0,  # log std = 0 => std = 1
-			)
-
+		self.dense3 = nn.Linear(64, 3)
 		self.saved_log_probs = []
 		self.rewards = []
 
@@ -61,7 +54,7 @@ class Policy(nn.Module):
 		x1 = torch.tanh(self.dense1(x))
 		x2 = torch.tanh(self.dense2(x1))
 		x3 = self.dense3(x2)
-		dist = self.distribution(x3)
+		dist = Categorical(logits=x3)
 		return dist
 
 def select_action(state, policy):
@@ -130,6 +123,7 @@ def compute_grads(policy, optimizer):
 		policy_loss.append(-log_prob * R)
 	optimizer.zero_grad()
 	policy_loss = torch.stack(policy_loss).sum()
+	print('Loss:',policy_loss)
 	policy_loss.backward()
 
 def update_weights(policy, optimizer):
@@ -270,12 +264,11 @@ def main():
 				actions.append(action)
 			
 			if action_dim == 1:
-				actions = torch.clip(torch.as_tensor([actions]), env.min_action, env.max_action)
-			else:
-				actions = np.clip(actions[0], env.min_action, env.max_action)
+				actions = torch.as_tensor([actions])
 
 			#step through enviroment with set of actions. rewards is list of reward
 			state, rewards, done, y = env.step(actions)
+			#print('State:', state, 'Action:', actions, 'Rewards:', rewards)
 			action_list.append(actions)
 			state_list.append(state)
 			if episode == num_episodes - 1:
@@ -287,9 +280,10 @@ def main():
 			R += rewards
 			reset = t == max_eps_len-1
 			if done or reset:
+				print('Episode:',episode)
 				R_hist.append(R)
 				y_hist.append(y)
-				state = env.reset()
+				#state = env.reset()
 				R = 0
 				break
 
