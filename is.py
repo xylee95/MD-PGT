@@ -21,7 +21,7 @@ import plot_surface
 import copy
 
 parser = argparse.ArgumentParser(description='PyTorch REINFORCE example')
-parser.add_argument('--gamma', type=float, default=0.99,
+parser.add_argument('--gamma', type=float, default=0.95,
 					help='discount factor (default: 0.99)')
 parser.add_argument('--seed', type=int, default=0, help='random seed (default: 0)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
@@ -31,12 +31,12 @@ parser.add_argument('--num_agents', type=int, default=2, help='Number of agents'
 parser.add_argument('--max_eps_len', type=int, default=100, help='Number of steps per episode')
 parser.add_argument('--num_episodes', type=int, default=5000, help='Number training episodes')
 parser.add_argument('--env', type=str, default='quad2d', help='Training env',
-					choices=('rastrigin','quad2d','quad3d', 'quad10d', 'sphere','griewangk','tang'))
+					choices=('rastrigin','quad2d','quad3d', 'quad5d','quad10d', 'sphere','griewangk','tang'))
 parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
 parser.add_argument('--opt', type=str, default='sgd', help='Optimizer',
 					choices=('adam', 'sgd', 'rmsprop'))
 parser.add_argument('--momentum', type=float, default=0.0, help='Momentum term for SGD')
-
+#parser.add_argument('--entropy_coef', type=float, default=0.0, help='Entropy coefficient term')
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -44,10 +44,11 @@ torch.manual_seed(args.seed)
 class Policy(nn.Module):
 	def __init__(self, state_dim, action_dim):
 		super(Policy, self).__init__()
-		self.dense1 = nn.Linear(state_dim, 128)
-		self.dense2 = nn.Linear(128, 64)
+		self.dense1 = nn.Linear(state_dim, 64)
+		self.dense2 = nn.Linear(64, 64)
 		self.dense3 = nn.Linear(64, 3)
 		self.saved_log_probs = []
+		#self.entropy = []
 		self.rewards = []
 
 	def forward(self, x):
@@ -63,8 +64,11 @@ def select_action(state, policy):
 	except:
 		pass
 	dist = policy(state)
+	# print('Mean', dist.mean)
+	# print('Entropy', dist.entropy())
 	action = dist.sample()
 	policy.saved_log_probs.append(dist.log_prob(action))
+	#policy.entropy.append(dist.entropy())
 	return action
 
 def global_average(agents, num_agents):
@@ -121,8 +125,12 @@ def compute_grads(policy, optimizer):
 	returns = (returns - returns.mean()) / (returns.std() + eps)
 	for log_prob, R in zip(policy.saved_log_probs, returns):
 		policy_loss.append(-log_prob * R)
-	optimizer.zero_grad()
-	policy_loss = torch.stack(policy_loss).sum()
+	optimizer.zero_grad() 
+
+	#policy_entropy = torch.stack(policy.entropy).sum()
+	policy_loss = torch.stack(policy_loss).sum() 
+	#policy_loss = torch.clip(policy_loss, -1, 1)
+	#policy_loss = policy_loss + entropy_coef*policy_entropy
 	print('Loss:',policy_loss)
 	policy_loss.backward()
 
@@ -197,6 +205,8 @@ def main():
 		env = quadratic.Quadratic(dimension=2, seed=args.seed)
 	elif args.env == 'quad3d':
 		env = quadratic.Quadratic3D(dimension=3, seed=args.seed)
+	elif args.env == 'quad5d':
+		env = quadratic.Quadratic5D(dimension=5, seed=args.seed)
 	elif args.env == 'quad10d':
 		env = quadratic.Quadratic10D(dimension=10, seed=args.seed)
 	elif args.env == 'sphere':
@@ -280,7 +290,7 @@ def main():
 			R += rewards
 			reset = t == max_eps_len-1
 			if done or reset:
-				print('Episode:',episode)
+				print('Episode:',episode, 'Reward', R, 'Done', done)
 				R_hist.append(R)
 				y_hist.append(y)
 				#state = env.reset()
@@ -363,7 +373,6 @@ def main():
 	plt.xlabel('Episodes')
 	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
 	plt.savefig(os.path.join(fpath, str(args.seed) + '_ISW_num.jpg'))
-
 
 	plt.figure()
 	for i in range(num_agents):
