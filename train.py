@@ -19,6 +19,7 @@ from envs import rastrigin, quadratic, sphere, griewangk, styblinski_tang
 import plot_surface
 
 import time, datetime
+from MDPGT import MDPGT
 
 parser = argparse.ArgumentParser(description='PyTorch REINFORCE example')
 parser.add_argument('--gamma', type=float, default=0.99,
@@ -34,8 +35,9 @@ parser.add_argument('--env', type=str, default='quad2d', help='Training env',
 					choices=('rastrigin','quad2d','quad3d', 'quad10d', 'sphere','griewangk','tang'))
 parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
 parser.add_argument('--opt', type=str, default='sgd', help='Optimizer',
-					choices=('adam', 'sgd', 'rmsprop'))
+					choices=('adam', 'sgd', 'rmsprop', 'mdpgt'))
 parser.add_argument('--momentum', type=float, default=0.0, help='Momentum term for SGD')
+parser.add_argument('--beta', type=float, default=0.5, help='Beta value for MDPGT')
 
 args = parser.parse_args()
 
@@ -192,6 +194,11 @@ def main():
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension, action_dim=action_dim).to(device))
 			optimizers.append(optim.RMSprop(agents[i].parameters(), lr=3e-4))
+	elif args.opt == 'mdpgt':
+		pi = [1/num_agents for _ in range(num_agents)]
+		for i in range(num_agents):
+			agents.append(Policy(state_dim=dimension, action_dim=action_dim).to(device))
+			optimizers.append(MDPGT(agents[i].parameters(), pi=pi, lr=3e-4, beta=args.beta))
 
 	# RL setup
 	num_episodes = args.num_episodes
