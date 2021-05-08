@@ -10,14 +10,16 @@ class Sphere(gym.Env):
 		self.seed = seed
 		np.random.seed(self.seed)
 		self.dimension = dimension
-		self.max_bound = 1.5
-		self.min_bound = -1.5
+		self.max_bound = 1
+		self.min_bound = -1
 		self.y = 1 #dummy variable
 		self.prev_y = 1 #dummy
 		self.action_space = spaces.Discrete(self.dimension) #3 action per agent (up, down, stay) ^ num agents
 		self.observation_space = spaces.Box(low=self.min_bound, high=self.max_bound, shape=(self.dimension,), dtype=np.float32)
 		self.done = False
 		self.reward = 0
+		self.step_size = 0.1
+		self.bounds = np.arange(self.min_bound, self.max_bound, self.step_size)
 		self.reset()
 		# only used for contour plotting purposes for 2D
 		self.minima = np.array([0,0])
@@ -28,9 +30,9 @@ class Sphere(gym.Env):
 		delta = []
 		for item in action:
 			if item == 0:
-				change = 0.05
+				change = self.step_size
 			elif item == 1:
-				change = -0.05
+				change = -1*self.step_size
 			elif item == 2:
 				change = 0.00
 			delta.append(change)
@@ -41,14 +43,17 @@ class Sphere(gym.Env):
 		self.reward = self.get_reward()
 		if np.less_equal((np.absolute(self.state)), np.ones(self.dimension)*1e-3).all():
 			self.done = True
-			self.reward = 0.1
+			self.reward = 1
 		return self.state, self.reward, self.done, self.y
 
 	def reset(self):
-		self.state = np.floor(np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,)))
-		while np.linalg.norm(self.state) < np.linalg.norm(self.max_bound):
-			self.state = np.floor(np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,)))
-			self.state = np.clip(self.state, self.min_bound, self.max_bound)
+		#self.state = np.floor(np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,)))
+		self.state = np.random.choice(self.bounds, self.dimension, replace=True)
+		while np.linalg.norm(self.state) < 5*self.step_size:#np.linalg.norm(self.max_bound):
+			#self.state = np.floor(np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,)))
+			#self.state = np.clip(self.state, self.min_bound, self.max_bound)
+			self.state = np.random.choice(self.bounds, self.dimension, replace=True)
+
 		print('Reset state:', self.state)
 		self.done = False
 		return np.array(self.state)
@@ -57,14 +62,14 @@ class Sphere(gym.Env):
 		# Reward compute based on y: we want previous y to be bigger than current y
 		# Might also want to consider based on distance of x from optimal
 
-		reward = -0.1*self.y + (self.prev_y - self.y)
+		reward = -0.1*self.y + (self.prev_y - self.y) - 0.1
 		#reward = -0.1*self.y + 0.1*(self.prev_y - self.y)
 
 		#r3
 		#reward = -0.1*self.y 
 
 		#r4
-		#reward = -0.1*np.linalg.norm(self.state)
+		#reward = -1*np.linalg.norm(self.state)
 
 		#r5
 		#reward = -0.1

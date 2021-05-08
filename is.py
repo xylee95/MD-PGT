@@ -21,7 +21,7 @@ import plot_surface
 import copy
 
 parser = argparse.ArgumentParser(description='PyTorch REINFORCE example')
-parser.add_argument('--gamma', type=float, default=0.95,
+parser.add_argument('--gamma', type=float, default=0.99,
 					help='discount factor (default: 0.99)')
 parser.add_argument('--seed', type=int, default=0, help='random seed (default: 0)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
@@ -63,13 +63,38 @@ def select_action(state, policy):
 		state = torch.from_numpy(np.array(state)).float().unsqueeze(0)
 	except:
 		pass
-	dist = policy(state)
-	# print('Mean', dist.mean)
-	# print('Entropy', dist.entropy())
-	action = dist.sample()
-	policy.saved_log_probs.append(dist.log_prob(action))
+	dist = policy(state) # --> Gaussian ( mu | sigma )
+	action = dist.sample() # action ~ Gaussian(mu | sigma)
+	policy.saved_log_probs.append(dist.log_prob(action)) ## log prob( a | s)
 	#policy.entropy.append(dist.entropy())
 	return action
+
+def grad_traj_prev_weights(state_list, action_list, policy, old_policy):
+
+	old_policy_log_probs = []
+
+	for i in range(len(state_list)):
+		dist = old_policy(state_list[i])
+		log_prob = dist.log_prob(action_list[i])
+		old_policy_log_probs.append(log_prob)
+
+	eps = np.finfo(np.float32).eps.item()
+	R = 0
+	policy_loss = []
+	returns = []
+	for r in policy.rewards[::-1]:
+		R = r + args.gamma * R
+		returns.insert(0, R)
+	returns = torch.tensor(returns)
+	returns = (returns - returns.mean()) / (returns.std() + eps)
+	for old_log_prob, R in zip(old_policy_log_probs, returns):
+		policy_loss.append(-old_log_prob * R)
+	
+	optimizer.zero_grad() 
+
+	policy_loss = torch.stack(policy_loss).sum() 
+	print('Loss:',policy_loss)
+	policy_loss.backward()
 
 def global_average(agents, num_agents):
 	layer_1_w = []
@@ -149,11 +174,18 @@ def compute_IS_weight(action_list, state_list, cur_policy, old_policy):
 		prob_curr_traj = [] # list of probability of every action taken under curreny policy
 		# for each step taken
 		for j in range(len(action_list)):
-			# obtain distribution for given state
-			cur_dist = cur_policy[i](torch.FloatTensor(state_list[j]))
-			# compute log prob of action
-			# action_list is in the shape of (episode_len, 1, num_agents)
-			log_prob = cur_dist.log_prob(action_list[j][0][i])
+			# ### accurate method ####
+			# # obtain distribution for given state
+			# cur_dist = cur_policy[i](torch.FloatTensor(state_list[j]))
+			# # compute log prob of action
+			# # action_list is in the shape of (episode_len, 1, num_agents)
+			# log_prob = cur_dist.log_prob(action_list[j][0][i])
+			# ##
+
+			### faster method ###
+			# use save log probability attached to agent
+			log_prob = cur_policy[i].saved_log_probs[j][0]
+			###
 			prob = np.exp(log_prob.detach().numpy())
 			prob_curr_traj.append(prob)
 
@@ -248,8 +280,8 @@ def main():
 
 	# RL setup
 	num_episodes = args.num_episodes
-	done = False
 	max_eps_len = args.max_eps_len
+	done = False
 	R = 0 
 	R_hist = []
 	y_hist = []
@@ -263,6 +295,9 @@ def main():
 		state = env.reset()
 		state_list.append(state)
 		state = torch.FloatTensor(state).to(device)
+
+		phi = copy.deepcopy(old_agents)
+		old_agent = copy.deepcopy(agents)
 
 		if episode == num_episodes - 1:
 			path = [state]
@@ -293,13 +328,14 @@ def main():
 				print('Episode:',episode, 'Reward', R, 'Done', done)
 				R_hist.append(R)
 				y_hist.append(y)
-				#state = env.reset()
 				R = 0
 				break
 
-		if episode == 0:
-			isw, num, denom = compute_IS_weight(action_list, state_list, agents, old_agents)
-			print(isw)
+		isw, num, denom = compute_IS_weight(action_list, state_list, agents, phi)
+		print(isw)
+		isw_plot.append(isw)
+		num_plot.append(num)
+		denom_plot.append(denom)
 
 		for policy, optimizer in zip(agents, optimizers):
 			compute_grads(policy, optimizer)
@@ -310,16 +346,9 @@ def main():
 		for policy, optimizer in zip(agents, optimizers):
 			update_weights(policy, optimizer)
 
-		isw, num, denom = compute_IS_weight(action_list, state_list, agents, old_agents)
-		print(isw)
-		isw_plot.append(isw)
-		num_plot.append(num)
-		denom_plot.append(denom)
-
 		#update old_agents to current agent
 		action_list = []
 		state_list = []
-		old_agents = copy.deepcopy(agents)
 
 		if episode == num_episodes - 1 and dimension == 2:
 			path.pop(0)

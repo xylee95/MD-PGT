@@ -18,10 +18,11 @@ class Quadratic(gym.Env):
         self.observation_space = spaces.Box(low=self.min_bound, high=self.max_bound, shape=(self.dimension,), dtype=np.float32)
         self.done = False
         self.reward = 0
+        self.step_size = 0.5
+        self.bounds = np.arange(self.min_bound, self.max_bound, self.step_size)
         self.reset()
         # only used for contour plotting purposes for 2D
         self.minima = np.array([0,0])
-
         
     def step(self, action):
         #action is vector of delta
@@ -29,9 +30,9 @@ class Quadratic(gym.Env):
         delta = []
         for item in action:
             if item == 0:
-                change = 0.05
+                change = self.step_size
             elif item == 1:
-                change = -0.05
+                change = -1*self.step_size
             elif item == 2:
                 change = 0
             delta.append(change)
@@ -43,21 +44,27 @@ class Quadratic(gym.Env):
         # optima at x = -y -z -a -b etc...
         if np.less_equal((np.absolute(self.state)), np.ones(self.dimension)*1e-5).all():
             self.done = True
-            self.reward = 0.1
+            self.reward = 1
         return self.state, self.reward, self.done, self.y
 
     def reset(self):
-        self.state = np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,))
-        while np.linalg.norm(self.state) < np.linalg.norm(self.max_bound):
-            self.state = np.floor(np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,)))
+        #self.state = np.floor(np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,)))
+        self.state = np.random.choice(self.bounds, self.dimension, replace=True)
+        while np.linalg.norm(self.state) < 5*self.step_size: #np.linalg.norm(self.max_bound):
+            #self.state = np.floor(np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,)))
+            #self.state = np.clip(self.state, self.min_bound, self.max_bound)
+            self.state = np.random.choice(self.bounds, self.dimension, replace=True)
+
+        print('Reset state:', self.state)
         self.done = False
         return np.array(self.state)
+
 
     def get_reward(self):
         # Reward compute based on y: we want previous y to be bigger than current y
         # Might also want to consider based on distance of x from optimal
 
-        reward = -0.1*self.y + (self.prev_y - self.y)
+        reward = -0.1*self.y + (self.prev_y - self.y) - 0.1
         #reward = -0.1*self.y + 0.1*(self.prev_y - self.y)
 
         #r3
