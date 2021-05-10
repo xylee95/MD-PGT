@@ -272,7 +272,6 @@ def main():
 			agents.append(Policy(state_dim=dimension, action_dim=action_dim).to(device))
 			optimizers.append(optim.RMSprop(agents[i].parameters(), lr=3e-4))
 
-
 	#create copy of old agents
 	old_agents = copy.deepcopy(agents)
 	action_list = []

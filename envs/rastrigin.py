@@ -20,7 +20,7 @@ class Rastrigin(gym.Env):
         self.observation_space = spaces.Box(low=self.min_bound, high=self.max_bound, shape=(self.dimension,), dtype=np.float32)
         self.done = False
         self.reward = 0
-        self.step_size = 0.25
+        self.step_size = 0.5
         self.bounds = np.arange(self.min_bound, self.max_bound, self.step_size)
         self.reset()
         # only used for contour plotting purposes for 2D
@@ -49,11 +49,8 @@ class Rastrigin(gym.Env):
         return self.state, self.reward, self.done, self.y
 
     def reset(self):
-        #self.state = np.floor(np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,)))
         self.state = np.random.choice(self.bounds, self.dimension, replace=True)
-        while np.linalg.norm(self.state) < 5*self.step_size: #np.linalg.norm(self.max_bound):
-            #self.state = np.floor(np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,)))
-            #self.state = np.clip(self.state, self.min_bound, self.max_bound)
+        while np.linalg.norm(self.state) < 5*self.step_size: 
             self.state = np.random.choice(self.bounds, self.dimension, replace=True)
 
         print('Reset state:', self.state)

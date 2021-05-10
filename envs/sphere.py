@@ -47,11 +47,8 @@ class Sphere(gym.Env):
 		return self.state, self.reward, self.done, self.y
 
 	def reset(self):
-		#self.state = np.floor(np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,)))
 		self.state = np.random.choice(self.bounds, self.dimension, replace=True)
-		while np.linalg.norm(self.state) < 5*self.step_size:#np.linalg.norm(self.max_bound):
-			#self.state = np.floor(np.random.uniform(low=self.min_bound, high=self.max_bound, size=(self.dimension,)))
-			#self.state = np.clip(self.state, self.min_bound, self.max_bound)
+		while np.linalg.norm(self.state) < 5*self.step_size:
 			self.state = np.random.choice(self.bounds, self.dimension, replace=True)
 
 		print('Reset state:', self.state)
@@ -62,6 +59,7 @@ class Sphere(gym.Env):
 		# Reward compute based on y: we want previous y to be bigger than current y
 		# Might also want to consider based on distance of x from optimal
 
+		#r1
 		reward = -0.1*self.y + (self.prev_y - self.y) - 0.1
 		#reward = -0.1*self.y + 0.1*(self.prev_y - self.y)
 
