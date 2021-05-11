@@ -36,7 +36,6 @@ parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
 parser.add_argument('--opt', type=str, default='sgd', help='Optimizer',
 					choices=('adam', 'sgd', 'rmsprop'))
 parser.add_argument('--momentum', type=float, default=0.0, help='Momentum term for SGD')
-#parser.add_argument('--entropy_coef', type=float, default=0.0, help='Entropy coefficient term')
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)
@@ -48,7 +47,6 @@ class Policy(nn.Module):
 		self.dense2 = nn.Linear(64, 64)
 		self.dense3 = nn.Linear(64, 3)
 		self.saved_log_probs = []
-		#self.entropy = []
 		self.rewards = []
 
 	def forward(self, x):
@@ -66,7 +64,6 @@ def select_action(state, policy):
 	dist = policy(state) # --> Gaussian ( mu | sigma )
 	action = dist.sample() # action ~ Gaussian(mu | sigma)
 	policy.saved_log_probs.append(dist.log_prob(action)) ## log prob( a | s)
-	#policy.entropy.append(dist.entropy())
 	return action
 
 def grad_traj_prev_weights(state_list, action_list, policy, old_policy):
@@ -151,11 +148,7 @@ def compute_grads(policy, optimizer):
 	for log_prob, R in zip(policy.saved_log_probs, returns):
 		policy_loss.append(-log_prob * R)
 	optimizer.zero_grad() 
-
-	#policy_entropy = torch.stack(policy.entropy).sum()
 	policy_loss = torch.stack(policy_loss).sum() 
-	#policy_loss = torch.clip(policy_loss, -1, 1)
-	#policy_loss = policy_loss + entropy_coef*policy_entropy
 	print('Loss:',policy_loss)
 	policy_loss.backward()
 
@@ -218,15 +211,10 @@ def main():
 	# initialize env
 	num_agents = args.num_agents
 	dimension = args.dim
-	if num_agents == 1:
-		action_dim = dimension
-		setup = 'centralized'
-		fpath = os.path.join('results', setup, args.env, str(dimension) + 'D', args.opt)
-	else:
-		assert num_agents > 1
-		action_dim = 1
-		setup = 'decentralized'
-		fpath = os.path.join('results', setup, args.env, str(dimension) + 'D', args.opt)
+	assert num_agents > 1
+	action_dim = 1
+	setup = 'decentralized'
+	fpath = os.path.join('dpg_results', args.env, str(dimension) + 'D', args.opt)
 
 	if not os.path.isdir(fpath):
 		os.makedirs(fpath)
@@ -286,9 +274,9 @@ def main():
 	y_hist = []
 	R_hist_plot = []
 	y_hist_plot = []
-	isw_plot = []
-	num_plot = []
-	denom_plot = []
+	# isw_plot = []
+	# num_plot = []
+	# denom_plot = []
 
 	for episode in range(num_episodes):
 		state = env.reset()
@@ -330,11 +318,11 @@ def main():
 				R = 0
 				break
 
-		isw, num, denom = compute_IS_weight(action_list, state_list, agents, phi)
-		print(isw)
-		isw_plot.append(isw)
-		num_plot.append(num)
-		denom_plot.append(denom)
+		# isw, num, denom = compute_IS_weight(action_list, state_list, agents, phi)
+		# print(isw)
+		# isw_plot.append(isw)
+		# num_plot.append(num)
+		# denom_plot.append(denom)
 
 		for policy, optimizer in zip(agents, optimizers):
 			compute_grads(policy, optimizer)
@@ -380,36 +368,36 @@ def main():
 	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
 	plt.savefig(os.path.join(fpath, str(args.seed) + '_Y.jpg'))
 
-	isw_plot = np.array(isw_plot)
-	num_plot = np.array(num_plot)
-	denom_plot = np.array(denom_plot)
+	# isw_plot = np.array(isw_plot)
+	# num_plot = np.array(num_plot)
+	# denom_plot = np.array(denom_plot)
 
-	plt.figure()
-	for i in range(num_agents):
-		plt.plot(isw_plot[:,i], label='Agent' + str(i))
-	plt.legend()
-	plt.ylabel('Importance Sampling Weight')
-	plt.xlabel('Episodes')
-	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
-	plt.savefig(os.path.join(fpath, str(args.seed) + '_ISW.jpg'))
+	# plt.figure()
+	# for i in range(num_agents):
+	# 	plt.plot(isw_plot[:,i], label='Agent' + str(i))
+	# plt.legend()
+	# plt.ylabel('Importance Sampling Weight')
+	# plt.xlabel('Episodes')
+	# plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
+	# plt.savefig(os.path.join(fpath, str(args.seed) + '_ISW.jpg'))
 
-	plt.figure()
-	for i in range(num_agents):
-		plt.plot(num_plot[:,i], label='Agent' + str(i))
-	plt.legend()
-	plt.ylabel('Importance Sampling Weight (Numerator)')
-	plt.xlabel('Episodes')
-	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
-	plt.savefig(os.path.join(fpath, str(args.seed) + '_ISW_num.jpg'))
+	# plt.figure()
+	# for i in range(num_agents):
+	# 	plt.plot(num_plot[:,i], label='Agent' + str(i))
+	# plt.legend()
+	# plt.ylabel('Importance Sampling Weight (Numerator)')
+	# plt.xlabel('Episodes')
+	# plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
+	# plt.savefig(os.path.join(fpath, str(args.seed) + '_ISW_num.jpg'))
 
-	plt.figure()
-	for i in range(num_agents):
-		plt.plot(denom_plot[:,i], label='Agent' + str(i))
-	plt.legend()
-	plt.ylabel('Importance Sampling Weight (Denominator)')
-	plt.xlabel('Episodes')
-	plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
-	plt.savefig(os.path.join(fpath, str(args.seed) + '_ISW_denom.jpg'))
+	# plt.figure()
+	# for i in range(num_agents):
+	# 	plt.plot(denom_plot[:,i], label='Agent' + str(i))
+	# plt.legend()
+	# plt.ylabel('Importance Sampling Weight (Denominator)')
+	# plt.xlabel('Episodes')
+	# plt.title(str(dimension) + '-d ' + setup + ' ' + args.env + args.opt + ' ' + str(args.seed))
+	# plt.savefig(os.path.join(fpath, str(args.seed) + '_ISW_denom.jpg'))
 
 	np.save(os.path.join(os.path.join(fpath, 'R_array_' + str(args.seed) + '.npy')), R_hist_plot)
 	np.save(os.path.join(os.path.join(fpath, 'Y_array_' + str(args.seed) + '.npy')), y_hist_plot)

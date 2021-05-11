@@ -33,7 +33,7 @@ parser.add_argument('--env', type=str, default='quad2d', help='Training env',
 					choices=('rastrigin','quad2d','quad3d', 'quad5d','quad10d', 'sphere','griewangk','tang'))
 parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
 parser.add_argument('--opt', type=str, default='sgd', help='Optimizer',
-					choices=('adam', 'sgd', 'rmsprop','sgd_m'))
+					choices=('adam', 'sgd', 'rmsprop','sgd_gt'))
 parser.add_argument('--momentum', type=float, default=0.0, help='Momentum term for SGD')
 parser.add_argument('--beta', type=float, default=0.9, help='Beta term for surrogate gradient')
 args = parser.parse_args()
@@ -55,8 +55,7 @@ class Policy(nn.Module):
 		dist = Categorical(logits=x3)
 		return dist
 
-
-class SGD_M(torch.optim.Optimizer):
+class SGD_GT(torch.optim.Optimizer):
     def __init__(self, params, lr=0.01, momentum=0, dampening=0,
                  weight_decay=0, nesterov=False):
         if lr < 0.0:
@@ -70,10 +69,10 @@ class SGD_M(torch.optim.Optimizer):
                         weight_decay=weight_decay, nesterov=nesterov)
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
-        super(SGD_M, self).__init__(params, defaults)
+        super(SGD_GT, self).__init__(params, defaults)
 
     def __setstate__(self, state):
-        super(SGD_M, self).__setstate__(state)
+        super(SGD_GT, self).__setstate__(state)
         for group in self.param_groups:
             group.setdefault('nesterov', False)
 
@@ -105,8 +104,7 @@ class SGD_M(torch.optim.Optimizer):
                 	d_p = p.grad
                 p.add_(d_p, alpha=-group['lr'])
 
-        return loss
-	
+        return loss	
 
 def select_action(state, policy):
 	try:
@@ -299,13 +297,50 @@ def compute_u(policy, optimizer, prev_u, isw, prev_g, beta):
 		grad_surrogate[i] = beta*grad[i] + (1-beta)*(prev_u[i] + grad[i] - isw*prev_g[i])
 	return grad_surrogate
 
+def update_v(v_k, u_k, prev_u_k):
+	assert v_k[0].shape == u_k[0].shape == prev_u_k[0].shape
+	next_v_k = [1]*len(v_k)
+	#next_v_k = v_k + u_k - prev_u_k
+	for i in range(len(v_k)):
+		next_v_k[i] = v_k[i] + u_k[i] - prev_u_k[i]
+	return next_v_k
+
+def take_consensus(v_k_list, num_agents):
+	# list of n agents, each agent a list of 6 layers
+	grads_0 = []
+	grads_1 = []
+	grads_2 = []
+	grads_3 = []
+	grads_4 = []
+	grads_5 = []
+
+	for i in range(len(v_k_list)):
+		grads_0.append(v_k_list[i][0])
+		grads_1.append(v_k_list[i][1])
+		grads_2.append(v_k_list[i][2])
+		grads_3.append(v_k_list[i][3])
+		grads_4.append(v_k_list[i][4])
+		grads_5.append(v_k_list[i][5])
+
+	grads_0 = torch.sum(torch.stack(grads_0),0)/len(grads_0)
+	grads_1 = torch.sum(torch.stack(grads_1),0)/len(grads_1)
+	grads_2 = torch.sum(torch.stack(grads_2),0)/len(grads_2)
+	grads_3 = torch.sum(torch.stack(grads_3),0)/len(grads_3)
+	grads_4 = torch.sum(torch.stack(grads_4),0)/len(grads_4)
+	grads_5 = torch.sum(torch.stack(grads_5),0)/len(grads_5)
+
+	v_k_list = [grads_0, grads_1, grads_2, grads_3, grads_4, grads_5]
+
+	consensus_v_k = [v_k_list]*num_agents
+	return consensus_v_k
+
 def main():
 	# initialize env
 	num_agents = args.num_agents
 	dimension = args.dim
 	assert num_agents > 1
 	setup='decentralized'
-	fpath = os.path.join('mdpg_results', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta))
+	fpath = os.path.join('mdpgt_results', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta))
 
 	if not os.path.isdir(fpath):
 		os.makedirs(fpath)
@@ -346,10 +381,10 @@ def main():
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension).to(device))
 			optimizers.append(optim.SGD(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
-	elif args.opt == 'sgd_m':
+	elif args.opt == 'sgd_gt':
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension).to(device))
-			optimizers.append(SGD_M(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
+			optimizers.append(SGD_GT(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
 	elif args.opt == 'rmsprop':
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension).to(device))
@@ -379,15 +414,16 @@ def main():
 			print('Initial Trajectory: Reward', R, 'Done', done)
 			break
 
-	# initializating without consensus of u
+	# initializating with inidividual grad updates then consensus
 	prev_u_list = []
 	for policy, optimizer in zip(agents, optimizers):
 		grads = compute_grads(policy, optimizer)
 		prev_u_list.append(grads)
-	agents = global_average(agents, num_agents)
+	v_k_list = copy.deepcopy(prev_u_list)
 	for policy, optimizer in zip(agents, optimizers):
-		update_weights(policy, optimizer)
-
+		update_weights(policy, optimizer, grads=v_k_list)
+	agents = global_average(agents, num_agents)
+	
 	# RL setup
 	done = False
 	R = 0 
@@ -456,20 +492,30 @@ def main():
 			prev_g = compute_grad_traj_prev_weights(state_list, action_list, policy, old_policy, optimizer)
 			list_grad_traj_prev_weights.append(prev_g)
 
-		grad_surrogate_list = []
 		# compute gradient surrogate
+		u_k_list = []
 		for policy, optimizer, prev_u, isw, prev_g in zip(agents, optimizers, prev_u_list, isw_list, list_grad_traj_prev_weights):
-			grad_surrogate = compute_u(policy, optimizer, prev_u, isw, prev_g, args.beta)
-			grad_surrogate_list.append(grad_surrogate)
+			u_k = compute_u(policy, optimizer, prev_u, isw, prev_g, args.beta)
+			u_k_list.append(u_k)
+
+		## take consensus of v_k first
+		v_k_list = take_consensus(v_k_list, num_agents)
+
+		## update v_k+1
+		next_v_k_list = []
+		for v_k, u_k, prev_u_k in zip(v_k_list, u_k_list, prev_u_list):
+			v_k = update_v(v_k, u_k, prev_u_k)
+			next_v_k_list.append(v_k)
+
+		v_k_list = copy.deepcopy(next_v_k_list)
+		prev_u_list = copy.deepcopy(u_k_list)
 
 		# take consensus of parameters
 		agents = global_average(agents, num_agents)
 
 		# update_weights with grad surrogate
-		for policy, optimizer, grad_surrogate in zip(agents, optimizers, grad_surrogate_list):
-			update_weights(policy, optimizer, grads=grad_surrogate)
-
-		prev_u_list = copy.deepcopy(grad_surrogate_list)
+		for policy, optimizer in zip(agents, optimizers):
+			update_weights(policy, optimizer, grads=next_v_k_list)
 
 		#update old_agents to current agent
 		action_list = []
