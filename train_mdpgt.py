@@ -36,6 +36,7 @@ parser.add_argument('--opt', type=str, default='sgd', help='Optimizer',
 					choices=('adam', 'sgd', 'rmsprop','sgd_gt'))
 parser.add_argument('--momentum', type=float, default=0.0, help='Momentum term for SGD')
 parser.add_argument('--beta', type=float, default=0.9, help='Beta term for surrogate gradient')
+parser.add_argument('--min_isw', type=float, default=0.0, help='Minimum value to set ISW')
 args = parser.parse_args()
 torch.manual_seed(args.seed)
 
@@ -217,7 +218,7 @@ def update_weights(policy, optimizer, grads=None):
 	del policy.rewards[:]
 	del policy.saved_log_probs[:]
 
-def compute_IS_weight(action_list, state_list, cur_policy, old_policy):
+def compute_IS_weight(action_list, state_list, cur_policy, old_policy, min_isw):
 	num_list = []
 	denom_list = []
 	weight_list = []
@@ -249,7 +250,7 @@ def compute_IS_weight(action_list, state_list, cur_policy, old_policy):
 		prob_old_tau = np.prod(prob_old_traj)
 
 		weight = prob_old_tau / (prob_tau + 1e-8)
-		weight_list.append(weight)
+		weight_list.append(np.max((min_isw, weight)))
 		num_list.append(prob_old_tau)
 		denom_list.append(prob_tau)
 	
@@ -480,7 +481,7 @@ def main():
 				break
 
 		# compute ISW using latest traj with current agent and old agents
-		isw_list, num, denom = compute_IS_weight(action_list, state_list, agents, phi)
+		isw_list, num, denom = compute_IS_weight(action_list, state_list, agents, phi, args.min_isw)
 		print(isw_list)
 		isw_plot.append(isw_list)
 		num_plot.append(num)
