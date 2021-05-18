@@ -445,7 +445,7 @@ def main():
 				break
 
 		# compute ISW using latest traj with current agent and old agents
-		isw_list, num, denom = compute_IS_weight(action_list, state_list, agents, phi, min_isw)
+		isw_list, num, denom = compute_IS_weight(action_list, state_list, agents, phi, args.min_isw)
 		print(isw_list)
 		isw_plot.append(isw_list)
 		num_plot.append(num)

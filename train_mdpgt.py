@@ -424,7 +424,41 @@ def main():
 	for policy, optimizer in zip(agents, optimizers):
 		update_weights(policy, optimizer, grads=v_k_list)
 	agents = global_average(agents, num_agents)
-	
+
+	# if using Minibatch - Initialization
+	# For i in range B trajectories:
+	#    Sample traj
+	#    Compute grads
+	#    Store grads
+	#    Average grads
+	'''
+	for i in range(args.minibatch_size):
+		for t in range(1, args.max_eps_len):  
+			actions = []
+			for policy in agents:
+				action = select_action(state, policy)
+				actions.append(action)
+			actions = torch.as_tensor([actions])
+
+			state, rewards, done, y = env.step(actions)
+
+			for agent in agents:
+				agent.rewards.append(rewards)
+				
+			state = torch.FloatTensor(state).to(device)
+			R += rewards
+			reset = t == args.max_eps_len-1
+			if done or reset:
+				print('Batch Initial Trajectory: Reward', R, 'Done', done)
+				break
+
+		prev_u_list = []
+		for policy, optimizer in zip(agents, optimizers):
+			grads = compute_grads(policy, optimizer)
+			prev_u_list.append(grads)
+
+	'''
+
 	# RL setup
 	done = False
 	R = 0 
