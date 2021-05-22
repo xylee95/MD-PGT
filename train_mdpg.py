@@ -102,13 +102,12 @@ class SGD_M(torch.optim.Optimizer):
                     continue
                 if grads is not None:
                 	d_p = (grads[grad_iter]).view(p.shape)
+                	grad_iter+=1
                 else:
                 	d_p = p.grad
                 p.add_(d_p, alpha=-group['lr'])
-
         return loss
 	
-
 def select_action(state, policy):
 	try:
 		state = torch.from_numpy(np.array(state)).float().unsqueeze(0)
@@ -214,9 +213,9 @@ def compute_grads(policy, optimizer):
 
 def update_weights(policy, optimizer, grads=None):
 	if grads is not None:
-		optimizer.step()
-	else:
 		optimizer.step(grads=grads)
+	else:
+		optimizer.step()
 	del policy.rewards[:]
 	del policy.saved_log_probs[:]
 

@@ -101,10 +101,10 @@ class SGD_GT(torch.optim.Optimizer):
                     continue
                 if grads is not None:
                 	d_p = (grads[grad_iter]).view(p.shape)
+                	grad_iter+=1
                 else:
                 	d_p = p.grad
                 p.add_(d_p, alpha=-group['lr'])
-
         return loss	
 
 def select_action(state, policy):
@@ -212,9 +212,9 @@ def compute_grads(policy, optimizer):
 
 def update_weights(policy, optimizer, grads=None):
 	if grads is not None:
-		optimizer.step()
-	else:
 		optimizer.step(grads=grads)
+	else:
+		optimizer.step()
 	del policy.rewards[:]
 	del policy.saved_log_probs[:]
 
@@ -421,8 +421,8 @@ def main():
 		grads = compute_grads(policy, optimizer)
 		prev_u_list.append(grads)
 	v_k_list = copy.deepcopy(prev_u_list)
-	for policy, optimizer in zip(agents, optimizers):
-		update_weights(policy, optimizer, grads=v_k_list)
+	for policy, optimizer, v_k in zip(agents, optimizers, v_k_list):
+		update_weights(policy, optimizer, grads=v_k)
 	agents = global_average(agents, num_agents)
 
 	# if using Minibatch - Initialization
@@ -549,8 +549,8 @@ def main():
 		agents = global_average(agents, num_agents)
 
 		# update_weights with grad surrogate
-		for policy, optimizer in zip(agents, optimizers):
-			update_weights(policy, optimizer, grads=next_v_k_list)
+		for policy, optimizer, v_k in zip(agents, optimizers, next_v_k_list):
+			update_weights(policy, optimizer, grads=v_k)
 
 		#update old_agents to current agent
 		action_list = []
