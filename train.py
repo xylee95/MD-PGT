@@ -42,18 +42,11 @@ args = parser.parse_args()
 torch.manual_seed(args.seed)
 
 class Policy(nn.Module):
-	def __init__(self, state_dim, action_dim):
+	def __init__(self, state_dim):
 		super(Policy, self).__init__()
 		self.dense1 = nn.Linear(state_dim, 128)
 		self.dense2 = nn.Linear(128, 64)
 		self.dense3 = nn.Linear(64, 3)
-		# self.distribution = pfrl.policies.GaussianHeadWithStateIndependentCovariance(
-		# 	action_size=action_dim,
-		# 	var_type="diagonal",
-		# 	var_func=lambda x: torch.exp(2 * x),  # Parameterize log std
-		# 	var_param_init=0,  # log std = 0 => std = 1
-		# 	)
-
 		self.saved_log_probs = []
 		self.rewards = []
 
@@ -70,7 +63,6 @@ def select_action(state, policy):
 	except:
 		pass
 	dist = policy(state)
-	#print(dist.probs)
 	action = dist.sample() #action will be sampled from 3 categories
 	policy.saved_log_probs.append(dist.log_prob(action))
 	return action
@@ -131,7 +123,6 @@ def compute_grads(policy, optimizer):
 		policy_loss.append(-log_prob * R)
 	optimizer.zero_grad()
 	policy_loss = torch.stack(policy_loss).sum()
-	#print(policy_loss)
 	policy_loss.backward()
 
 def update_weights(policy, optimizer):
@@ -143,15 +134,7 @@ def main():
 	# initialize env
 	num_agents = args.num_agents
 	dimension = args.dim
-	if num_agents == 1:
-		action_dim = dimension
-		setup = 'centralized'
-		fpath = os.path.join('results', setup, args.env, str(dimension) + 'D', args.opt)
-	else:
-		assert num_agents > 1
-		action_dim = 1
-		setup = 'decentralized'
-		fpath = os.path.join('results', setup, args.env, str(dimension) + 'D', args.opt)
+	fpath = os.path.join('dpg_results', args.env, str(dimension) + 'D', args.opt)
 
 	if not os.path.isdir(fpath):
 		os.makedirs(fpath)
@@ -184,15 +167,15 @@ def main():
 	optimizers = []
 	if args.opt == 'adam':
 		for i in range(num_agents):
-			agents.append(Policy(state_dim=dimension, action_dim=action_dim).to(device))
+			agents.append(Policy(state_dim=dimension).to(device))
 			optimizers.append(optim.Adam(agents[i].parameters(), lr=3e-4))
 	elif args.opt == 'sgd':
 		for i in range(num_agents):
-			agents.append(Policy(state_dim=dimension, action_dim=action_dim).to(device))
+			agents.append(Policy(state_dim=dimension).to(device))
 			optimizers.append(optim.SGD(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
 	elif args.opt == 'rmsprop':
 		for i in range(num_agents):
-			agents.append(Policy(state_dim=dimension, action_dim=action_dim).to(device))
+			agents.append(Policy(state_dim=dimension).to(device))
 			optimizers.append(optim.RMSprop(agents[i].parameters(), lr=3e-4))
 
 	# RL setup
@@ -217,11 +200,7 @@ def main():
 			for policy in agents:
 				action = select_action(state, policy)
 				actions.append(action)
-			
-			if action_dim == 1:
-			 	actions = torch.as_tensor([actions])
-			# else:
-			# 	actions = np.clip(actions[0], env.min_action, env.max_action)
+			actions = torch.as_tensor([actions])
 
 			#step through enviroment with set of actions. rewards is list of reward
 			state, rewards, done, y = env.step(actions)
