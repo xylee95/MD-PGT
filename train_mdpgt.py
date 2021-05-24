@@ -415,15 +415,17 @@ def main():
 			print('Initial Trajectory: Reward', R, 'Done', done)
 			break
 
-	# initializating with inidividual grad updates then consensus
+	# initializating with consensus of weights and grads
 	prev_u_list = []
 	for policy, optimizer in zip(agents, optimizers):
 		grads = compute_grads(policy, optimizer)
 		prev_u_list.append(grads)
 	v_k_list = copy.deepcopy(prev_u_list)
-	for policy, optimizer, v_k in zip(agents, optimizers, v_k_list):
-		update_weights(policy, optimizer, grads=v_k)
+	consensus_v_k_list = take_consensus(v_k_list, num_agents)
 	agents = global_average(agents, num_agents)
+
+	for policy, optimizer, v_k in zip(agents, optimizers, consensus_v_k_list):
+		update_weights(policy, optimizer, grads=v_k)
 
 	# if using Minibatch - Initialization
 	# For i in range B trajectories:
@@ -545,11 +547,12 @@ def main():
 		v_k_list = copy.deepcopy(next_v_k_list)
 		prev_u_list = copy.deepcopy(u_k_list)
 
-		# take consensus of parameters
+		# take consensus of parameters and v_k+1
 		agents = global_average(agents, num_agents)
+		consensus_next_v_k_list = take_consensus(next_v_k_list, num_agents)
 
 		# update_weights with grad surrogate
-		for policy, optimizer, v_k in zip(agents, optimizers, next_v_k_list):
+		for policy, optimizer, v_k in zip(agents, optimizers, consensus_next_v_k_list):
 			update_weights(policy, optimizer, grads=v_k)
 
 		#update old_agents to current agent
