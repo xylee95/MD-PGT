@@ -341,7 +341,7 @@ def main():
 	dimension = args.dim
 	assert num_agents > 1
 	setup='decentralized'
-	fpath = os.path.join('mdpgt_results', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta))
+	fpath = os.path.join('mdpgt_results_min_' + str(args.min_isw) + 'isw', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta))
 
 	if not os.path.isdir(fpath):
 		os.makedirs(fpath)
@@ -539,8 +539,8 @@ def main():
 		## update v_k+1
 		next_v_k_list = []
 		for v_k, u_k, prev_u_k in zip(v_k_list, u_k_list, prev_u_list):
-			v_k = update_v(v_k, u_k, prev_u_k)
-			next_v_k_list.append(v_k)
+			v_k_new = update_v(v_k, u_k, prev_u_k)
+			next_v_k_list.append(v_k_new)
 
 		v_k_list = copy.deepcopy(next_v_k_list)
 		prev_u_list = copy.deepcopy(u_k_list)
