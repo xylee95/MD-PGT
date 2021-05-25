@@ -16,7 +16,6 @@ import pfrl
 import pdb
 import envs
 from envs import lineworld
-import plot_surface
 
 import time, datetime
 
@@ -196,7 +195,6 @@ def main():
 			if done or reset:
 				print(f'Done: {done} Reset:{reset} State:{state} reward:{rewards}')
 				R_hist.append(R)
-				state = env.reset()
 				R = 0
 				break
 
