@@ -24,14 +24,14 @@ parser.add_argument('--gamma', type=float, default=0.99,
 parser.add_argument('--seed', type=int, default=0, help='random seed (default: 0)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
 					help='interval between training status logs (default: 10)')
-parser.add_argument('--dim', type=int, default=2, help='Number of dimension')
+parser.add_argument('--dim', type=int, default=1, help='Number of dimension')
 parser.add_argument('--num_agents', type=int, default=2, help='Number of agents')
 parser.add_argument('--max_eps_len', type=int, default=500, help='Number of steps per episode')
 parser.add_argument('--num_episodes', type=int, default=5000, help='Number training episodes')
 parser.add_argument('--env', type=str, default='lineworld', help='Training env')
 parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
-parser.add_argument('--opt', type=str, default='sgd_gt', help='Optimizer',
-					choices=('adam', 'sgd', 'rmsprop','sgd_gt'))
+parser.add_argument('--opt', type=str, default='sgd_m', help='Optimizer',
+					choices=('adam', 'sgd', 'rmsprop','sgd_m'))
 parser.add_argument('--momentum', type=float, default=0.0, help='Momentum term for SGD')
 parser.add_argument('--beta', type=float, default=0.9, help='Beta term for surrogate gradient')
 parser.add_argument('--min_isw', type=float, default=0.0, help='Minimum value to set ISW')
@@ -54,7 +54,8 @@ class Policy(nn.Module):
 		dist = Categorical(logits=x3)
 		return dist
 
-class SGD_GT(torch.optim.Optimizer):
+
+class SGD_M(torch.optim.Optimizer):
     def __init__(self, params, lr=0.01, momentum=0, dampening=0,
                  weight_decay=0, nesterov=False):
         if lr < 0.0:
@@ -68,10 +69,10 @@ class SGD_GT(torch.optim.Optimizer):
                         weight_decay=weight_decay, nesterov=nesterov)
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
-        super(SGD_GT, self).__init__(params, defaults)
+        super(SGD_M, self).__init__(params, defaults)
 
     def __setstate__(self, state):
-        super(SGD_GT, self).__setstate__(state)
+        super(SGD_M, self).__setstate__(state)
         for group in self.param_groups:
             group.setdefault('nesterov', False)
 
@@ -103,8 +104,8 @@ class SGD_GT(torch.optim.Optimizer):
                 else:
                 	d_p = p.grad
                 p.add_(d_p, alpha=-group['lr'])
-        return loss	
-
+        return loss
+	
 def select_action(state, policy):
 	try:
 		state = torch.from_numpy(np.array(state)).float().unsqueeze(0)
@@ -248,7 +249,7 @@ def compute_IS_weight(action_list, state_list, cur_policy, old_policy, min_isw):
 		prob_old_tau = np.prod(prob_old_traj)
 
 		weight = prob_old_tau / (prob_tau + 1e-8)
-		weight_list.append(np.max((min_isw, weight)))
+		weight_list.append(np.max((min_isw,weight)))
 		num_list.append(prob_old_tau)
 		denom_list.append(prob_tau)
 	
@@ -296,48 +297,11 @@ def compute_u(policy, optimizer, prev_u, isw, prev_g, beta):
 		grad_surrogate[i] = beta*grad[i] + (1-beta)*(prev_u[i] + grad[i] - isw*prev_g[i])
 	return grad_surrogate
 
-def update_v(v_k, u_k, prev_u_k):
-	assert v_k[0].shape == u_k[0].shape == prev_u_k[0].shape
-	next_v_k = [1]*len(v_k)
-	#next_v_k = v_k + u_k - prev_u_k
-	for i in range(len(v_k)):
-		next_v_k[i] = v_k[i] + u_k[i] - prev_u_k[i]
-	return next_v_k
-
-def take_consensus(v_k_list, num_agents):
-	# list of n agents, each agent a list of 6 layers
-	grads_0 = []
-	grads_1 = []
-	grads_2 = []
-	grads_3 = []
-	grads_4 = []
-	grads_5 = []
-
-	for i in range(len(v_k_list)):
-		grads_0.append(v_k_list[i][0])
-		grads_1.append(v_k_list[i][1])
-		grads_2.append(v_k_list[i][2])
-		grads_3.append(v_k_list[i][3])
-		grads_4.append(v_k_list[i][4])
-		grads_5.append(v_k_list[i][5])
-
-	grads_0 = torch.sum(torch.stack(grads_0),0)/len(grads_0)
-	grads_1 = torch.sum(torch.stack(grads_1),0)/len(grads_1)
-	grads_2 = torch.sum(torch.stack(grads_2),0)/len(grads_2)
-	grads_3 = torch.sum(torch.stack(grads_3),0)/len(grads_3)
-	grads_4 = torch.sum(torch.stack(grads_4),0)/len(grads_4)
-	grads_5 = torch.sum(torch.stack(grads_5),0)/len(grads_5)
-
-	v_k_list = [grads_0, grads_1, grads_2, grads_3, grads_4, grads_5]
-
-	consensus_v_k = [v_k_list]*num_agents
-	return consensus_v_k
-
 def main():
 	# initialize env
 	num_agents = args.num_agents
 	dimension = args.dim
-	fpath = os.path.join('mdpgt_results_min_' + str(args.min_isw) + 'isw', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta))
+	fpath = os.path.join('mdpg_results_min_' + str(args.min_isw) + 'isw', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta))
 
 	if not os.path.isdir(fpath):
 		os.makedirs(fpath)
@@ -360,10 +324,10 @@ def main():
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension).to(device))
 			optimizers.append(optim.SGD(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
-	elif args.opt == 'sgd_gt':
+	elif args.opt == 'sgd_m':
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension).to(device))
-			optimizers.append(SGD_GT(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
+			optimizers.append(SGD_M(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
 	elif args.opt == 'rmsprop':
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension).to(device))
@@ -385,7 +349,7 @@ def main():
 
 		for i in range(len(agents)):
 			agents[i].rewards.append(rewards[i])
-
+			
 		state = torch.FloatTensor(state).to(device)
 		R += np.sum(rewards)
 		reset = t == args.max_eps_len-1
@@ -394,16 +358,14 @@ def main():
 			R = 0
 			break
 
-	# initializating with consensus of weights and grads
+	# initializating without consensus of u
 	prev_u_list = []
 	for policy, optimizer in zip(agents, optimizers):
 		grads = compute_grads(policy, optimizer)
 		prev_u_list.append(grads)
-	v_k_list = copy.deepcopy(prev_u_list)
-	consensus_v_k_list = take_consensus(v_k_list, num_agents)
 	agents = global_average(agents, num_agents)
-	for policy, optimizer, v_k in zip(agents, optimizers, consensus_v_k_list):
-		update_weights(policy, optimizer, grads=v_k)
+	for policy, optimizer in zip(agents, optimizers):
+		update_weights(policy, optimizer)
 
 	# RL setup
 	done = False
@@ -427,6 +389,9 @@ def main():
 		# old_agent is now updated agent
 		old_agent = copy.deepcopy(agents)
 
+		if episode == args.num_episodes - 1:
+			path = [state]
+
 		# sample one trajectory
 		for t in range(1, args.max_eps_len):  
 			actions = []
@@ -442,7 +407,7 @@ def main():
 			state_list.append(state)
 			for i in range(len(agents)):
 				agents[i].rewards.append(rewards[i])
-			
+	
 			state = torch.FloatTensor(state).to(device)
 			R += np.sum(rewards)
 			reset = t == args.max_eps_len-1
@@ -465,31 +430,20 @@ def main():
 			prev_g = compute_grad_traj_prev_weights(state_list, action_list, policy, old_policy, optimizer)
 			list_grad_traj_prev_weights.append(prev_g)
 
+		grad_surrogate_list = []
 		# compute gradient surrogate
-		u_k_list = []
 		for policy, optimizer, prev_u, isw, prev_g in zip(agents, optimizers, prev_u_list, isw_list, list_grad_traj_prev_weights):
-			u_k = compute_u(policy, optimizer, prev_u, isw, prev_g, args.beta)
-			u_k_list.append(u_k)
+			grad_surrogate = compute_u(policy, optimizer, prev_u, isw, prev_g, args.beta)
+			grad_surrogate_list.append(grad_surrogate)
 
-		## take consensus of v_k first
-		v_k_list = take_consensus(v_k_list, num_agents)
-
-		## update v_k+1
-		next_v_k_list = []
-		for v_k, u_k, prev_u_k in zip(v_k_list, u_k_list, prev_u_list):
-			v_k_new = update_v(v_k, u_k, prev_u_k)
-			next_v_k_list.append(v_k_new)
-
-		v_k_list = copy.deepcopy(next_v_k_list)
-		prev_u_list = copy.deepcopy(u_k_list)
-
-		# take consensus of parameters and v_k+1
+		# take consensus of parameters
 		agents = global_average(agents, num_agents)
-		consensus_next_v_k_list = take_consensus(next_v_k_list, num_agents)
 
 		# update_weights with grad surrogate
-		for policy, optimizer, v_k in zip(agents, optimizers, consensus_next_v_k_list):
-			update_weights(policy, optimizer, grads=v_k)
+		for policy, optimizer, grad_surrogate in zip(agents, optimizers, grad_surrogate_list):
+			update_weights(policy, optimizer, grads=grad_surrogate)
+
+		prev_u_list = copy.deepcopy(grad_surrogate_list)
 
 		#update old_agents to current agent
 		action_list = []
