@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import pfrl
 import pdb
 import envs
-from envs import rastrigin, quadratic, sphere, griewangk, styblinski_tang
+from envs import rastrigin, quadratic, sphere, griewangk, styblinski_tang, gridworld
 import plot_surface
 import copy
 
@@ -30,7 +30,7 @@ parser.add_argument('--num_agents', type=int, default=2, help='Number of agents'
 parser.add_argument('--max_eps_len', type=int, default=100, help='Number of steps per episode')
 parser.add_argument('--num_episodes', type=int, default=5000, help='Number training episodes')
 parser.add_argument('--env', type=str, default='quad2d', help='Training env',
-					choices=('rastrigin','quad2d','quad3d', 'quad5d','quad10d', 'sphere','griewangk','tang'))
+					choices=('rastrigin','quad2d','quad3d', 'quad5d','quad10d', 'sphere','griewangk','tang', 'grid'))
 parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
 parser.add_argument('--opt', type=str, default='sgd', help='Optimizer',
 					choices=('adam', 'sgd', 'rmsprop','sgd_m'))
@@ -45,7 +45,7 @@ class Policy(nn.Module):
 		super(Policy, self).__init__()
 		self.dense1 = nn.Linear(state_dim, 64)
 		self.dense2 = nn.Linear(64, 64)
-		self.dense3 = nn.Linear(64, 3)
+		self.dense3 = nn.Linear(64, 5)
 		self.saved_log_probs = []
 		self.rewards = []
 
@@ -204,7 +204,7 @@ def compute_grads(policy, optimizer):
 		policy_loss.append(-log_prob * R)
 	optimizer.zero_grad() 
 	policy_loss = torch.stack(policy_loss).sum() 
-	print('Initial Loss:',policy_loss)
+	# print('Initial Loss:',policy_loss)
 	policy_loss.backward()
 	# list of tensors gradients, each tensor has shape
 	grad = [p.grad.detach().clone().flatten() if (p.requires_grad is True and p.grad is not None)
@@ -273,7 +273,7 @@ def compute_u(policy, optimizer, prev_u, isw, prev_g, beta):
 		policy_loss.append(-log_prob * R)
 	optimizer.zero_grad() 
 	policy_loss = torch.stack(policy_loss).sum() 
-	print('Loss:',policy_loss)
+	# print('Loss:',policy_loss)
 	policy_loss.backward()
 
 	# # list of shapes [torch.Size([64, dim]), torch.Size([64]), torch.Size([64, 64]), torch.Size([64]), torch.Size([3, 64]), torch.Size([3])
@@ -299,13 +299,71 @@ def compute_u(policy, optimizer, prev_u, isw, prev_g, beta):
 		grad_surrogate[i] = beta*grad[i] + (1-beta)*(prev_u[i] + grad[i] - isw*prev_g[i])
 	return grad_surrogate
 
+def env_loop(episode, path, env, agents, states, R, R_hist, y_hist, action_list, state_list, status, device):
+	if status == 'viz':
+		env.render()
+
+	for t in range(1, args.max_eps_len):  
+		actions = []
+
+		if args.env == 'grid':
+			for state, policy in zip(states, agents):
+				action = select_action(state, policy)
+				actions.append(action)
+		else:
+			for policy in agents:
+				action = select_action(states, policy)
+				actions.append(action)
+
+		actions = torch.as_tensor([actions])
+
+		#step through enviroment with set of actions. rewards is list of reward
+		states, rewards, done, y = env.step(actions)
+		action_list.append(actions)
+		state_list.append(states)
+
+		if status == 'viz':
+			print(f"Step {t}")
+			for ag in range(len(agents)):
+				print(f'Agent {ag}: {env.action_mapper[actions[0][ag].numpy().item()]}')
+			env.render()
+
+		if args.env == 'grid':
+			for agent,reward in zip(agents,rewards):
+				agent.rewards.append(reward)
+			R += sum(rewards)
+		else:
+			for agent in agents:
+				agent.rewards.append(rewards)
+			R += rewards
+		
+		states = torch.FloatTensor(states).to(device)
+		reset = t == args.max_eps_len-1
+		if done or reset:
+			if status == 'train':
+				if episode == args.num_episodes - 1:
+					path.append(states)
+				R_hist.append(R)
+				y_hist.append(y)
+				R = 0
+				break
+			elif status == 'init':
+				print(f'Initial Trajectory: Reward {R}, Done {done}')
+				break
+
+			elif status == 'viz':
+				print(f'Final model viz done.')
+				break
+
+	return agents, R_hist, y_hist
+
 def main():
 	# initialize env
 	num_agents = args.num_agents
 	dimension = args.dim
 	assert num_agents > 1
 	setup='decentralized'
-	fpath = os.path.join('mdpg_results_min_' + str(args.min_isw) + 'isw', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta))
+	fpath = os.path.join('mdpgt_results', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta), 'min_' + str(args.min_isw) + 'isw', str(num_agents) + '_agents')
 
 	if not os.path.isdir(fpath):
 		os.makedirs(fpath)
@@ -326,6 +384,9 @@ def main():
 		env = griewangk.Griewangk(dimension=dimension, seed=args.seed)
 	elif args.env == 'tang':
 		env = styblinski_tang.Styblinski_Tang(dimension=dimension, seed=args.seed)
+	elif args.env == 'grid':
+		env = gridworld.grid(size=(dimension, dimension), agents=num_agents, seed=args.seed)
+		dimension = num_agents*4
 	else:
 		print('Wrong spelling')
 		exit()
@@ -358,26 +419,37 @@ def main():
 	#initialization
 	old_agents = copy.deepcopy(agents)
 	print('Sampling initial trajectory')
-	state = env.reset()
+	states = env.reset()
 	R = 0
-	for t in range(1, args.max_eps_len):  
-		actions = []
-		for policy in agents:
-			action = select_action(state, policy)
-			actions.append(action)
-		actions = torch.as_tensor([actions])
+	path = []
+	R_hist = []
+	y_hist = []
+	action_list = []
+	state_list = []
+	agents, R_hist, y_hist = env_loop(0, path, env, agents, states, R, R_hist, y_hist, action_list, state_list, 'init', device)
+	# for t in range(1, args.max_eps_len):  
+	# 	actions = []
+	# 	for state, policy in zip(states, agents):
+	# 		action = select_action(state, policy)
+	# 		actions.append(action)
+	# 	actions = torch.as_tensor([actions])
 
-		state, rewards, done, y = env.step(actions)
+	# 	states, rewards, done, y = env.step(actions)
 
-		for agent in agents:
-			agent.rewards.append(rewards)
+	# 	if args.env == 'grid':
+	# 		for agent,reward in zip(agents,rewards):
+	# 			agent.rewards.append(reward)
+	# 		R += sum(rewards)
+	# 	else:
+	# 		for agent in agents:
+	# 			agent.rewards.append(rewards)
+	# 		R += rewards
 			
-		state = torch.FloatTensor(state).to(device)
-		R += rewards
-		reset = t == args.max_eps_len-1
-		if done or reset:
-			print('Initial Trajectory: Reward', R, 'Done', done)
-			break
+	# 	states = torch.FloatTensor(states).to(device)
+	# 	reset = t == args.max_eps_len-1
+	# 	if done or reset:
+	# 		print('Initial Trajectory: Reward', R, 'Done', done)
+	# 		break
 
 	# initializating without consensus of u
 	prev_u_list = []
@@ -403,9 +475,9 @@ def main():
 	state_list = []
 	
 	for episode in range(args.num_episodes):
-		state = env.reset()
-		state_list.append(state)
-		state = torch.FloatTensor(state).to(device)
+		states = env.reset()
+		state_list.append(states)
+		states = torch.FloatTensor(states).to(device)
 
 		# phi is now old agent
 		phi = copy.deepcopy(old_agents)
@@ -413,39 +485,46 @@ def main():
 		old_agent = copy.deepcopy(agents)
 
 		if episode == args.num_episodes - 1:
-			path = [state]
+			path = [states]
 
 		# sample one trajectory
-		for t in range(1, args.max_eps_len):  
-			actions = []
-			for policy in agents:
-				action = select_action(state, policy)
-				actions.append(action)
-			actions = torch.as_tensor([actions])
+		agents, R_hist, y_hist = env_loop(episode, path, env, agents, states, R, R_hist, y_hist, action_list, state_list, 'train', device)
+		# for t in range(1, args.max_eps_len):  
+		# 	actions = []
+		# 	for state, policy in zip(states, agents):
+		# 		action = select_action(state, policy)
+		# 		actions.append(action)
+		# 	actions = torch.as_tensor([actions])
 
-			#step through enviroment with set of actions. rewards is list of reward
-			state, rewards, done, y = env.step(actions)
-			#print('State:', state, 'Action:', actions, 'Rewards:', rewards)
-			action_list.append(actions)
-			state_list.append(state)
-			for agent in agents:
-				agent.rewards.append(rewards)
+		# 	#step through enviroment with set of actions. rewards is list of reward
+		# 	states, rewards, done, y = env.step(actions)
+		# 	#print('State:', state, 'Action:', actions, 'Rewards:', rewards)
+		# 	action_list.append(actions)
+		# 	state_list.append(states)
+
+		# 	if args.env == 'grid':
+		# 		for agent,reward in zip(agents,rewards):
+		# 			agent.rewards.append(reward)
+		# 		R += sum(rewards)
+		# 	else:
+		# 		for agent in agents:
+		# 			agent.rewards.append(rewards)
+		# 		R += rewards
 			
-			if episode == args.num_episodes - 1:
-				path.append(state)
-			state = torch.FloatTensor(state).to(device)
-			R += rewards
-			reset = t == args.max_eps_len-1
-			if done or reset:
-				print('Episode:',episode, 'Reward', R, 'Done', done)
-				R_hist.append(R)
-				y_hist.append(y)
-				R = 0
-				break
+		# 	if episode == args.num_episodes - 1:
+		# 		path.append(states)
+		# 	states = torch.FloatTensor(states).to(device)
+		# 	reset = t == args.max_eps_len-1
+		# 	if done or reset:
+		# 		# print('Episode:',episode, 'Reward', R, 'Done', done)
+		# 		R_hist.append(R)
+		# 		y_hist.append(y)
+		# 		R = 0
+		# 		break
 
 		# compute ISW using latest traj with current agent and old agents
 		isw_list, num, denom = compute_IS_weight(action_list, state_list, agents, phi, args.min_isw)
-		print(isw_list)
+		# print(isw_list)
 		isw_plot.append(isw_list)
 		num_plot.append(num)
 		denom_plot.append(denom)
@@ -475,7 +554,7 @@ def main():
 		action_list = []
 		state_list = []
 
-		if episode == args.num_episodes - 1 and args.dim == 2:
+		if episode == args.num_episodes - 1 and args.dim == 2 and args.env != 'grid':
 			path.pop(0)
 			plot_surface.visualize(env, path, fpath, setup + ' ' + args.env + '' + args.opt)
 
@@ -488,8 +567,50 @@ def main():
 			R_hist = []
 			print(f'Episode:{episode} Average reward:{avg_reward:.2f}')
 							
-		if episode % 100 == 0:
-			print(f'Last Action: {actions} State: {state} F(y):{y} Reward: {rewards} Done: {done}')
+		# if episode % 100 == 0:
+		# 	print(f'Last Action: {actions} State: {states} F(y):{y} Reward: {rewards} Done: {done}')
+
+	# Visualize gridworld after max episode
+	states = env.reset()
+	# print(f"Initialized state")
+	# print(f"Goal: {env.goal}")
+	# print(f"Agents: {env.state}")
+	agents, R_hist, y_hist = env_loop(0, path, env, agents, states, R, R_hist, y_hist, action_list, state_list, 'viz', device)
+	# env.render()
+	# for t in range(1, args.max_eps_len):  
+	# 	actions = []
+	# 	for state, policy in zip(states, agents):
+	# 		action = select_action(state, policy)
+	# 		actions.append(action)
+	# 	actions = torch.as_tensor([actions])
+
+	# 	#step through enviroment with set of actions. rewards is list of reward
+	# 	states, rewards, done, y = env.step(actions)
+	# 	print(f"Step {t}")
+	# 	for ag in range(len(agents)):
+	# 		print(f'Agent {ag}: {env.action_mapper[actions[0][ag].numpy().item()]}')
+	# 	env.render()
+	# 	#print('State:', state, 'Action:', actions, 'Rewards:', rewards)
+	# 	action_list.append(actions)
+	# 	state_list.append(states)
+	# 	if args.env == 'grid':
+	# 		for agent,reward in zip(agents,rewards):
+	# 			agent.rewards.append(reward)
+	# 		R += sum(rewards)
+	# 	else:
+	# 		for agent in agents:
+	# 			agent.rewards.append(rewards)
+	# 		R += rewards
+		
+	# 	if episode == args.num_episodes - 1:
+	# 		path.append(states)
+	# 	states = torch.FloatTensor(states).to(device)
+	# 	R += rewards
+
+	# 	reset = t == args.max_eps_len-1
+	# 	if done or reset:
+	# 		# print('Episode:',episode, 'Reward', R, 'Done', done)
+	# 		break
 
 	plt.figure()
 	plt.plot(R_hist_plot)

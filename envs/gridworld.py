@@ -9,8 +9,19 @@ AGENT = 1
 WALL = 2
 GOAL = 100
 
-class grid:
+class agent:
+    def __init__(self, row, col):
+        self.row = row
+        self.col = col
+        self.pos = tuple(np.random.randint((self.row, self.col)))
+        self.goal = tuple(np.random.randint((self.row, self.col)))
 
+    def reset(self):
+        self.pos = tuple(np.random.randint((self.row, self.col)))
+        self.goal = tuple(np.random.randint((self.row, self.col)))
+
+
+class grid:
     def __init__(self, size: Tuple[int,int], agents: int, seed: int):
         assert len(size) == 2, "grid size must be 2D"
         self.grid_row = size[0]
@@ -18,44 +29,66 @@ class grid:
         self.agents = agents
         np.random.seed(seed)
 
+        self.list_of_agents = [agent(self.grid_row, self.grid_col) for i in range(self.agents)]
+
         # Setup action mapper
         self.action_mapper = {0: 'up', 1: 'down', 2: 'left', 3: 'right', 4: 'no-op'}
         self.store_position = {}
         self.env_params()
 
     def env_params(self):
+        # reset gridworld state
         self.grid = np.zeros([self.grid_row, self.grid_col])
-        self.state = []
-        self.goal = []
+
+        # reset individual goal pos-goal pairs and register in grid
         for i in range(self.agents):
-            self.state.append(tuple(np.random.randint((self.grid_row, self.grid_col))))
-            self.goal.append(((self.grid_row-1)//(i+1), (self.grid_col-1)//(i+1)))
+            agent_n = self.list_of_agents[i]
+            agent_n.reset()
+            self.list_of_agents[i] = agent_n
+            self.grid[agent_n.pos] = AGENT
+            self.grid[agent_n.goal] = GOAL
             self.check_spawn(i)
-            self.grid[self.state[i]] = AGENT
-            self.grid[self.goal[i]] = GOAL
-        self.state = np.array(self.state).reshape(-1)
+
+        self.update_state()
+
+    def update_state(self):
+        # compile per-agent states
+        self.state = []
+        for i in range(self.agents):
+            # per-agent state is [pos, goal, other-pos, other-goal]
+            temp_state = []
+            mod_list = list(range(self.agents))
+            mod_list.remove(i)
+            temp_state.append(self.list_of_agents[i].pos)
+            temp_state.append(self.list_of_agents[i].goal)
+            for others in mod_list:
+                temp_state.append(self.list_of_agents[others].pos)
+            for others in mod_list:
+                temp_state.append(self.list_of_agents[others].goal)
+            self.state.append(np.array(temp_state).reshape(-1))
+
 
     def check_spawn(self, idx):
         condition = 1
         while condition:
-            up = (self.goal[idx][0] - 1, self.goal[idx][1])
-            down = (self.goal[idx][0] + 1, self.goal[idx][1])
-            left = (self.goal[idx][0], self.goal[idx][1] - 1)
-            right = (self.goal[idx][0], self.goal[idx][1] + 1)
-            if np.array_equal(self.state[idx], self.goal[idx]):
-                self.state[idx] = tuple(np.random.randint((self.grid_row, self.grid_col)))
+            up = (self.list_of_agents[idx].goal[0] - 1, self.list_of_agents[idx].goal[1])
+            down = (self.list_of_agents[idx].goal[0] + 1, self.list_of_agents[idx].goal[1])
+            left = (self.list_of_agents[idx].goal[0], self.list_of_agents[idx].goal[1] - 1)
+            right = (self.list_of_agents[idx].goal[0], self.list_of_agents[idx].goal[1] + 1)
+            if np.array_equal(self.list_of_agents[idx].pos, self.list_of_agents[idx].goal):
+                self.list_of_agents[idx].pos = tuple(np.random.randint((self.grid_row, self.grid_col)))
                 continue
-            elif np.array_equal(self.state[idx], up):
-                self.state[idx] = tuple(np.random.randint((self.grid_row, self.grid_col)))
+            elif np.array_equal(self.list_of_agents[idx].pos, up):
+                self.list_of_agents[idx].pos = tuple(np.random.randint((self.grid_row, self.grid_col)))
                 continue
-            elif np.array_equal(self.state[idx], down):
-                self.state[idx] = tuple(np.random.randint((self.grid_row, self.grid_col)))
+            elif np.array_equal(self.list_of_agents[idx].pos, down):
+                self.list_of_agents[idx].pos = tuple(np.random.randint((self.grid_row, self.grid_col)))
                 continue
-            elif np.array_equal(self.state[idx], left):
-                self.state[idx] = tuple(np.random.randint((self.grid_row, self.grid_col)))
+            elif np.array_equal(self.list_of_agents[idx].pos, left):
+                self.list_of_agents[idx].pos = tuple(np.random.randint((self.grid_row, self.grid_col)))
                 continue
-            elif np.array_equal(self.state[idx], right):
-                self.state[idx] = tuple(np.random.randint((self.grid_row, self.grid_col)))
+            elif np.array_equal(self.list_of_agents[idx].pos, right):
+                self.list_of_agents[idx].pos = tuple(np.random.randint((self.grid_row, self.grid_col)))
                 continue
             else:
                 condition = 0
@@ -65,35 +98,33 @@ class grid:
         return self.state
 
     def getreward(self):
-        # return -np.sqrt((self.goal[0] - self.state[0])**2 + (self.goal[1] - self.state[1])**2)
-        # return self.grid[self.state]
-        reward = 0
+        reward = np.full(self.agents, 0)
+        done_status = []
 
-        for i in range(self.agents):
-            if np.array_equal(self.goal[i], self.state[i]):
-                reward += 1
+        for agent in range(self.agents):
+             # and self.sparse[agent] == 0
+            if np.array_equal(self.list_of_agents[agent].goal, self.list_of_agents[agent].pos):
+                reward[agent] += 1
+                # self.sparse[agent] = 1
             else:
-                reward += 0
+                reward[agent] += 0
 
-            # collision check
-            keys = list(self.store_position.keys())
-            keys.remove(i)
-            for k in keys:
-                if np.array_equal(self.state[i], self.store_position[k]):
-                    reward -= 2
-                else:
-                    reward += 0
+        for agent in range(self.agents):
+            if np.array_equal(self.list_of_agents[agent].goal, self.list_of_agents[agent].pos):
+                done_status.append(1)
+            else:
+                done_status.append(0)
 
-        # if each agents reach their respective goals, gain huge reward
-        if reward == self.agents:
-            reward += 100*self.agents
+        if np.sum(done_status) == self.agents:
+            for agent in range(self.agents):
+                reward[agent] += 100*self.agents
 
         return reward
 
     def getdone(self):
         done = []
         for i in range(self.agents):
-            if np.array_equal(self.goal[i], self.state[i]):
+            if np.array_equal(self.list_of_agents[i].goal, self.list_of_agents[i].pos):
                 done.append(1)
             else:
                 done.append(0)
@@ -106,9 +137,9 @@ class grid:
         return done
 
     def step(self, raw_action):
-
+        raw_action = raw_action[0]
         assert len(raw_action) == self.agents
-        self.state = self.state.reshape(self.agents, -1)
+        # self.state = self.state.reshape(self.agents, -1)
 
         """
         Reference
@@ -132,34 +163,36 @@ class grid:
         """
 
         for i in range(self.agents):
-            self.grid[tuple(self.state[i])] = EMPTY
-            self.grid[tuple(self.goal[i])] = GOAL
-            action = self.action_mapper[raw_action[i].numpy()[0]]
+            self.grid[self.list_of_agents[i].pos] = EMPTY
+            self.grid[self.list_of_agents[i].goal] = GOAL
+            action = self.action_mapper[raw_action[i].numpy().item()]
 
             if action == 'up':
-                nextstep =  tuple(np.array([self.state[i][0] - 1, self.state[i][1]]))
+                nextstep =  tuple(np.array([self.list_of_agents[i].pos[0] - 1, self.list_of_agents[i].pos[1]]))
             elif action == 'down':
-                nextstep =  tuple(np.array([self.state[i][0] + 1, self.state[i][1]]))
+                nextstep =  tuple(np.array([self.list_of_agents[i].pos[0] + 1, self.list_of_agents[i].pos[1]]))
             elif action == 'left':
-                nextstep =  tuple(np.array([self.state[i][0], self.state[i][1] - 1]))
+                nextstep =  tuple(np.array([self.list_of_agents[i].pos[0], self.list_of_agents[i].pos[1] - 1]))
             elif action == 'right':
-                nextstep =  tuple(np.array([self.state[i][0], self.state[i][1] + 1]))
+                nextstep =  tuple(np.array([self.list_of_agents[i].pos[0], self.list_of_agents[i].pos[1] + 1]))
             else:
-                nextstep = tuple(np.array([self.state[i][0], self.state[i][1]]))
+                nextstep = tuple(np.array([self.list_of_agents[i].pos[0], self.list_of_agents[i].pos[1]]))
 
             if nextstep[0] >= 0 and nextstep[0] <= self.grid_row - 1:
                 if nextstep[1] >= 0 and nextstep[1] <= self.grid_col - 1:
-                    self.state[i] = nextstep
+                    self.list_of_agents[i].pos = nextstep
 
-            self.grid[tuple(self.state[i])] = AGENT
-            self.store_position[i] = self.state[i]
+        for i in range(self.agents):
+            self.grid[self.list_of_agents[i].pos] = AGENT
+
         reward = self.getreward()
         done = self.getdone()
-        self.state = self.state.reshape(-1)
-        self.store_position = {}
+        self.update_state()
+
         return self.state, reward, done, 0
 
     def render(self):
+        # agent_states = self.state.reshape(self.agents, -1)
 
         for i in range(self.grid_row):
             rowstrings = '--'
@@ -169,7 +202,11 @@ class grid:
             out = '| '
             for j in range(self.grid_col):
                 if self.grid[i, j] == AGENT:
-                    token = '*'
+                    token = '('
+                    for idx in range(self.agents):
+                        if np.array_equal(self.list_of_agents[idx].pos, np.array([i,j])):
+                            token += f'{idx}'
+                    token += ')'
                 elif self.grid[i, j] == TRAP:
                     token = 'T'
                 elif self.grid[i, j] == EMPTY:
