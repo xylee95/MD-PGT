@@ -31,10 +31,13 @@ parser.add_argument('--num_episodes', type=int, default=5000, help='Number train
 parser.add_argument('--env', type=str, default='lineworld', help='Training env')
 parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
 parser.add_argument('--opt', type=str, default='sgd_gt', help='Optimizer',
-					choices=('adam', 'sgd', 'rmsprop','sgd_gt'))
+					choices=('adam','sgd_gt'))
 parser.add_argument('--momentum', type=float, default=0.0, help='Momentum term for SGD')
 parser.add_argument('--beta', type=float, default=0.9, help='Beta term for surrogate gradient')
 parser.add_argument('--min_isw', type=float, default=0.0, help='Minimum value to set ISW')
+parser.add_argument('--minibatch_init', type=bool, default=False, help='Initialize grad with minibatch')
+parser.add_argument('--minibatch_size', type=int, default=32, help='Number of trajectory for warm startup')
+
 args = parser.parse_args()
 torch.manual_seed(args.seed)
 
@@ -110,9 +113,9 @@ def select_action(state, policy):
 		state = torch.from_numpy(np.array(state)).float().unsqueeze(0)
 	except:
 		pass
-	dist = policy(state) # --> Gaussian ( mu | sigma )
-	action = dist.sample() # action ~ Gaussian(mu | sigma)
-	policy.saved_log_probs.append(dist.log_prob(action)) ## log prob( a | s)
+	dist = policy(state) 
+	action = dist.sample() 
+	policy.saved_log_probs.append(dist.log_prob(action)) 
 	return action
 
 def compute_grad_traj_prev_weights(state_list, action_list, policy, old_policy, optimizer):
@@ -273,16 +276,6 @@ def compute_u(policy, optimizer, prev_u, isw, prev_g, beta):
 	print('Loss:',policy_loss)
 	policy_loss.backward()
 
-	# # list of shapes [torch.Size([64, dim]), torch.Size([64]), torch.Size([64, 64]), torch.Size([64]), torch.Size([3, 64]), torch.Size([3])
-	# grad_shapes = [p.shape if p.requires_grad is True else None
-	# 			for group in optimizer.param_groups for p in group['params']]
-	# # list of num_params [128, 64, 4096, 64, 192, 3]   
-	# grad_numel = [p.numel() if p.requires_grad is True else 0
-	# 			for group in optimizer.param_groups for p in group['params']]
-				  
-	# #list of device [device(type='cuda', index=0), device(type='cuda', index=0) etc]
-	# devices = [p.device for group in optimizer.param_groups for p in group['params']]
-
 	# list of tensors gradients, each tensor has shape
 	grad = [p.grad.detach().clone().flatten() if (p.requires_grad is True and p.grad is not None)
 			else None for group in optimizer.param_groups for p in group['params']]
@@ -356,54 +349,103 @@ def main():
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension).to(device))
 			optimizers.append(optim.Adam(agents[i].parameters(), lr=3e-4))
-	elif args.opt == 'sgd':
-		for i in range(num_agents):
-			agents.append(Policy(state_dim=dimension).to(device))
-			optimizers.append(optim.SGD(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
 	elif args.opt == 'sgd_gt':
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension).to(device))
 			optimizers.append(SGD_GT(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
-	elif args.opt == 'rmsprop':
-		for i in range(num_agents):
-			agents.append(Policy(state_dim=dimension).to(device))
-			optimizers.append(optim.RMSprop(agents[i].parameters(), lr=3e-4))
 
-	#initialization
-	old_agents = copy.deepcopy(agents)
-	print('Sampling initial trajectory')
-	state = env.reset()
-	R = 0
-	for t in range(1, args.max_eps_len):  
-		actions = []
-		for policy in agents:
-			action = select_action(state, policy)
-			actions.append(action)
-		actions = torch.as_tensor([actions])
+	if args.minibatch_init:
+		# if using Minibatch - Initialization
+		# For i in range B trajectories:
+		#    Sample traj
+		#    Compute grads
+		#    Store grads
+		#    Average grads
+		old_agents = copy.deepcopy(agents)
+		print('Sampling initial minibatch of trajectory')
+		state = env.reset()
+		R = 0
+		minibatch_grads = []
+		for i in range(args.minibatch_size):
+			for t in range(1, args.max_eps_len):  
+				actions = []
+				for policy in agents:
+					action = select_action(state, policy)
+					actions.append(action)
+				actions = torch.as_tensor([actions])
 
-		state, rewards, done = env.step(actions)
+				state, rewards, done = env.step(actions)
 
-		for i in range(len(agents)):
-			agents[i].rewards.append(rewards[i])
+				for j in range(len(agents)):
+					agents[j].rewards.append(rewards[j])
+					
+				state = torch.FloatTensor(state).to(device)
+				R += np.sum(rewards)
+				reset = t == args.max_eps_len-1
+				if done or reset:
+					print('Batch Initial Trajectory ' + str(i) + ': Reward', R, 'Done', done)
+					R = 0
+					break
 
-		state = torch.FloatTensor(state).to(device)
-		R += np.sum(rewards)
-		reset = t == args.max_eps_len-1
-		if done or reset:
-			print('Initial Trajectory: Reward', R, 'Done', done)
-			R = 0
-			break
+			single_traj_grads = []
+			for policy, optimizer in zip(agents, optimizers):
+				grads = compute_grads(policy, optimizer)
+				single_traj_grads.append(grads) #list of num_agent x list grads of every layer
+				optimizer.zero_grad()
+				del policy.rewards[:]
+				del policy.saved_log_probs[:]
 
-	# initializating with consensus of weights and grads
-	prev_u_list = []
-	for policy, optimizer in zip(agents, optimizers):
-		grads = compute_grads(policy, optimizer)
-		prev_u_list.append(grads)
-	v_k_list = copy.deepcopy(prev_u_list)
-	consensus_v_k_list = take_consensus(v_k_list, num_agents)
-	agents = global_average(agents, num_agents)
-	for policy, optimizer, v_k in zip(agents, optimizers, consensus_v_k_list):
-		update_weights(policy, optimizer, grads=v_k)
+			minibatch_grads.append(single_traj_grads) #list of minibatch x num_agent x list of grads of every layer
+
+		# need grads to be shape num_agent x list of grads of every layer
+		minibatch_grads = np.asarray(minibatch_grads)
+		minibatch_grads = np.mean(minibatch_grads, 0) #average across batch
+		minibatch_grads = minibatch_grads.tolist()
+		# initializating with consensus of weights and grads
+		prev_u_list = []
+		for avg_grads in minibatch_grads:
+			prev_u_list.append(avg_grads)
+		v_k_list = copy.deepcopy(prev_u_list)
+		consensus_v_k_list = take_consensus(v_k_list, num_agents)
+		agents = global_average(agents, num_agents)
+		for policy, optimizer, v_k in zip(agents, optimizers, consensus_v_k_list):
+			update_weights(policy, optimizer, grads=v_k)
+	else:
+		#initialization
+		old_agents = copy.deepcopy(agents)
+		print('Sampling initial trajectory')
+		state = env.reset()
+		R = 0
+		for t in range(1, args.max_eps_len):  
+			actions = []
+			for policy in agents:
+				action = select_action(state, policy)
+				actions.append(action)
+			actions = torch.as_tensor([actions])
+
+			state, rewards, done = env.step(actions)
+
+			for i in range(len(agents)):
+				agents[i].rewards.append(rewards[i])
+
+			state = torch.FloatTensor(state).to(device)
+			R += np.sum(rewards)
+			reset = t == args.max_eps_len-1
+			if done or reset:
+				print('Initial Trajectory: Reward', R, 'Done', done)
+				R = 0
+				break
+
+		# initializating with consensus of weights and grads
+		prev_u_list = []
+		for policy, optimizer in zip(agents, optimizers):
+			grads = compute_grads(policy, optimizer)
+			prev_u_list.append(grads)
+		v_k_list = copy.deepcopy(prev_u_list)
+		consensus_v_k_list = take_consensus(v_k_list, num_agents)
+		agents = global_average(agents, num_agents)
+		for policy, optimizer, v_k in zip(agents, optimizers, consensus_v_k_list):
+			update_weights(policy, optimizer, grads=v_k)
 
 	# RL setup
 	done = False
