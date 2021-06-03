@@ -1,5 +1,5 @@
-import numpy as np
 import gym
+import numpy as np
 from gym import spaces
 from typing import List, Tuple
 
@@ -13,12 +13,12 @@ class agent:
     def __init__(self, row, col):
         self.row = row
         self.col = col
-        self.pos = tuple(np.random.randint((self.row, self.col)))
-        self.goal = tuple(np.random.randint((self.row, self.col)))
+        self.pos = np.random.randint((self.row, self.col))
+        self.goal = np.random.randint((self.row, self.col))
 
     def reset(self):
-        self.pos = tuple(np.random.randint((self.row, self.col)))
-        self.goal = tuple(np.random.randint((self.row, self.col)))
+        self.pos = np.random.randint((self.row, self.col))
+        self.goal = np.random.randint((self.row, self.col))
 
 
 class grid:
@@ -45,8 +45,8 @@ class grid:
             agent_n = self.list_of_agents[i]
             agent_n.reset()
             self.list_of_agents[i] = agent_n
-            self.grid[agent_n.pos] = AGENT
-            self.grid[agent_n.goal] = GOAL
+            self.grid[tuple(agent_n.pos)] = AGENT
+            self.grid[tuple(agent_n.goal)] = GOAL
             self.check_spawn(i)
 
         self.update_state()
@@ -61,6 +61,7 @@ class grid:
             mod_list.remove(i)
             temp_state.append(self.list_of_agents[i].pos)
             temp_state.append(self.list_of_agents[i].goal)
+            # temp_state.append(self.list_of_agents[i].goal - self.list_of_agents[i].pos)
             for others in mod_list:
                 temp_state.append(self.list_of_agents[others].pos)
             for others in mod_list:
@@ -98,26 +99,35 @@ class grid:
         return self.state
 
     def getreward(self):
-        reward = np.full(self.agents, 0)
+        reward = np.full(self.agents, 0.)
         done_status = []
 
-        for agent in range(self.agents):
-             # and self.sparse[agent] == 0
-            if np.array_equal(self.list_of_agents[agent].goal, self.list_of_agents[agent].pos):
-                reward[agent] += 1
-                # self.sparse[agent] = 1
-            else:
-                reward[agent] += 0
+        # Sparse reward
+        # for agent in range(self.agents):
+        #     if np.array_equal(self.list_of_agents[agent].goal, self.list_of_agents[agent].pos):
+        #         reward[agent] += 1
+        #     else:
+        #         reward[agent] += 0
+
+        # for agent in range(self.agents):
+        #     if np.array_equal(self.list_of_agents[agent].goal, self.list_of_agents[agent].pos):
+        #         done_status.append(1)
+        #     else:
+        #         done_status.append(0)
+
+        # if np.sum(done_status) == self.agents:
+        #     for agent in range(self.agents):
+        #         reward[agent] += 100*self.agents
+
+        # Distance reward
+        def l2_norm(x,y):
+            return np.sqrt((x[0]-y[0])**2 + (x[1]-y[1])**2)
 
         for agent in range(self.agents):
-            if np.array_equal(self.list_of_agents[agent].goal, self.list_of_agents[agent].pos):
-                done_status.append(1)
-            else:
-                done_status.append(0)
+            pos = np.array(self.list_of_agents[agent].pos)
+            goal = np.array(self.list_of_agents[agent].goal)
 
-        if np.sum(done_status) == self.agents:
-            for agent in range(self.agents):
-                reward[agent] += 100*self.agents
+            reward[agent] -= l2_norm(goal,pos)
 
         return reward
 
@@ -163,8 +173,8 @@ class grid:
         """
 
         for i in range(self.agents):
-            self.grid[self.list_of_agents[i].pos] = EMPTY
-            self.grid[self.list_of_agents[i].goal] = GOAL
+            self.grid[tuple(self.list_of_agents[i].pos)] = EMPTY
+            self.grid[tuple(self.list_of_agents[i].goal)] = GOAL
             action = self.action_mapper[raw_action[i].numpy().item()]
 
             if action == 'up':
@@ -192,7 +202,6 @@ class grid:
         return self.state, reward, done, 0
 
     def render(self):
-        # agent_states = self.state.reshape(self.agents, -1)
 
         for i in range(self.grid_row):
             rowstrings = '--'
@@ -204,7 +213,7 @@ class grid:
                 if self.grid[i, j] == AGENT:
                     token = '('
                     for idx in range(self.agents):
-                        if np.array_equal(self.list_of_agents[idx].pos, np.array([i,j])):
+                        if np.array_equal(tuple(self.list_of_agents[idx].pos), np.array([i,j])):
                             token += f'{idx}'
                     token += ')'
                 elif self.grid[i, j] == TRAP:
