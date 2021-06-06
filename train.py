@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser(description='PyTorch REINFORCE example')
 parser.add_argument('--gamma', type=float, default=0.99,
 					help='discount factor (default: 0.99)')
 parser.add_argument('--seed', type=int, default=0, help='random seed (default: 0)')
-parser.add_argument('--log-interval', type=int, default=10, metavar='N',
+parser.add_argument('--log-interval', type=int, default=1, metavar='N',
 					help='interval between training status logs (default: 10)')
 parser.add_argument('--dim', type=int, default=1, help='Number of dimension')
 parser.add_argument('--num_agents', type=int, default=2, help='Number of agents')
@@ -156,7 +156,7 @@ def env_loop(episode, path, env, agents, states, R, R_hist, y_hist, action_list,
 		if status == 'viz':
 			print(f"Step {t}")
 			for ag in range(len(agents)):
-				print(f'Agent {ag}: {env.action_mapper[actions[0][ag].numpy().item()]}')
+				print(f'Agent {ag}: {env.action_mapper[actions[0][ag].numpy().item()]}, reward:{rewards[ag]}')
 			env.render()
 
 		if args.env == 'grid':
@@ -193,7 +193,7 @@ def main():
 	num_agents = args.num_agents
 	dimension = args.dim
 	setup='decentralized'
-	fpath = os.path.join('dpg_results', args.env, str(dimension) + 'D', args.opt)
+	fpath = os.path.join('dpg_results', args.env, str(dimension) + 'D', args.opt, str(num_agents) + '_agents')
 
 	if not os.path.isdir(fpath):
 		os.makedirs(fpath)
@@ -277,16 +277,6 @@ def main():
 		# 	for agent in agents:
 		# 		agent.rewards.append(rewards)
 				
-<<<<<<< Updated upstream
-			state = torch.FloatTensor(state).to(device)
-			R += rewards
-			reset = t == max_eps_len-1
-			if done or reset:
-				R_hist.append(R)
-				y_hist.append(y)
-				R = 0
-				break
-=======
 		# 	state = torch.FloatTensor(state).to(device)
 		# 	R += rewards
 		# 	reset = t == max_eps_len-1
@@ -296,7 +286,6 @@ def main():
 		# 		state = env.reset()
 		# 		R = 0
 		# 		break
->>>>>>> Stashed changes
 
 		for policy, optimizer in zip(agents, optimizers):
 			compute_grads(policy, optimizer)

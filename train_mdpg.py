@@ -363,7 +363,7 @@ def main():
 	dimension = args.dim
 	assert num_agents > 1
 	setup='decentralized'
-	fpath = os.path.join('mdpgt_results', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta), 'min_' + str(args.min_isw) + 'isw', str(num_agents) + '_agents')
+	fpath = os.path.join('mdpg_results', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta), 'min_' + str(args.min_isw) + 'isw', str(num_agents) + '_agents')
 
 	if not os.path.isdir(fpath):
 		os.makedirs(fpath)
