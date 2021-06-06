@@ -593,8 +593,13 @@ def main():
 		denom_plot.append(denom)
 
 		# compute gradient of current trajectory using old agents. This requires old agents with gradients
+		old_agent_optimizers = []
+		for i in range(num_agents):
+			old_agent_optimizers.append(SGD_GT(phi[i].parameters(), lr=3e-4, momentum=args.momentum))
+
+
 		list_grad_traj_prev_weights = []
-		for policy, old_policy, optimizer in zip(agents, phi, optimizers):
+		for policy, old_policy, optimizer in zip(agents, phi, old_agent_optimizers):
 			prev_g = compute_grad_traj_prev_weights(state_list, action_list, policy, old_policy, optimizer)
 			list_grad_traj_prev_weights.append(prev_g)
 
