@@ -116,7 +116,7 @@ def select_action(state, policy):
 	policy.saved_log_probs.append(dist.log_prob(action)) ## log prob( a | s)
 	return action
 
-def compute_grad_traj_prev_weights(state_list, action_list, policy, old_policy, optimizer):
+def compute_grad_traj_prev_weights(state_list, action_list, policy, old_policy, optimizer, episode):
 
 	old_policy_log_probs = []
 
@@ -274,16 +274,6 @@ def compute_u(policy, optimizer, prev_u, isw, prev_g, beta):
 	print('Loss:',policy_loss)
 	policy_loss.backward()
 
-	# # list of shapes [torch.Size([64, dim]), torch.Size([64]), torch.Size([64, 64]), torch.Size([64]), torch.Size([3, 64]), torch.Size([3])
-	# grad_shapes = [p.shape if p.requires_grad is True else None
-	# 			for group in optimizer.param_groups for p in group['params']]
-	# # list of num_params [128, 64, 4096, 64, 192, 3]   
-	# grad_numel = [p.numel() if p.requires_grad is True else 0
-	# 			for group in optimizer.param_groups for p in group['params']]
-				  
-	# #list of device [device(type='cuda', index=0), device(type='cuda', index=0) etc]
-	# devices = [p.device for group in optimizer.param_groups for p in group['params']]
-
 	# list of tensors gradients, each tensor has shape
 	grad = [p.grad.detach().clone().flatten() if (p.requires_grad is True and p.grad is not None)
 			else None for group in optimizer.param_groups for p in group['params']]
@@ -320,18 +310,10 @@ def main():
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension).to(device))
 			optimizers.append(optim.Adam(agents[i].parameters(), lr=3e-4))
-	elif args.opt == 'sgd':
-		for i in range(num_agents):
-			agents.append(Policy(state_dim=dimension).to(device))
-			optimizers.append(optim.SGD(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
 	elif args.opt == 'sgd_m':
 		for i in range(num_agents):
 			agents.append(Policy(state_dim=dimension).to(device))
 			optimizers.append(SGD_M(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
-	elif args.opt == 'rmsprop':
-		for i in range(num_agents):
-			agents.append(Policy(state_dim=dimension).to(device))
-			optimizers.append(optim.RMSprop(agents[i].parameters(), lr=3e-4))
 
 	#initialization
 	old_agents = copy.deepcopy(agents)
@@ -425,9 +407,13 @@ def main():
 		denom_plot.append(denom)
 
 		# compute gradient of current trajectory using old agents. This requires old agents with gradients
+		old_agent_optimizers = []
+		for i in range(num_agents):
+			old_agent_optimizers.append(SGD_M(phi[i].parameters(), lr=3e-4, momentum=args.momentum))
+
 		list_grad_traj_prev_weights = []
-		for policy, old_policy, optimizer in zip(agents, phi, optimizers):
-			prev_g = compute_grad_traj_prev_weights(state_list, action_list, policy, old_policy, optimizer)
+		for policy, old_policy, optimizer in zip(agents, phi, old_agent_optimizers):
+			prev_g = compute_grad_traj_prev_weights(state_list, action_list, policy, old_policy, optimizer, episode)
 			list_grad_traj_prev_weights.append(prev_g)
 
 		grad_surrogate_list = []

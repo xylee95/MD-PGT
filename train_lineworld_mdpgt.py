@@ -118,7 +118,7 @@ def select_action(state, policy):
 	policy.saved_log_probs.append(dist.log_prob(action)) 
 	return action
 
-def compute_grad_traj_prev_weights(state_list, action_list, policy, old_policy, optimizer):
+def compute_grad_traj_prev_weights(state_list, action_list, policy, old_policy, optimizer, episode):
 
 	old_policy_log_probs = []
 
@@ -146,6 +146,7 @@ def compute_grad_traj_prev_weights(state_list, action_list, policy, old_policy, 
 	# list of tensors gradients, each tensor has shape
 	grad = [p.grad.detach().clone().flatten() if (p.requires_grad is True and p.grad is not None)
 			else None for group in optimizer.param_groups for p in group['params']]
+
 	return grad
 
 def global_average(agents, num_agents):
@@ -209,6 +210,7 @@ def compute_grads(policy, optimizer):
 	# list of tensors gradients, each tensor has shape
 	grad = [p.grad.detach().clone().flatten() if (p.requires_grad is True and p.grad is not None)
 			else None for group in optimizer.param_groups for p in group['params']]
+	
 	return grad
 
 def update_weights(policy, optimizer, grads=None):
@@ -257,7 +259,7 @@ def compute_IS_weight(action_list, state_list, cur_policy, old_policy, min_isw):
 	
 	return weight_list, num_list, denom_list
 
-def compute_u(policy, optimizer, prev_u, isw, prev_g, beta):
+def compute_u(policy, optimizer, prev_u, isw, prev_g, beta, episode):
 
 	eps = np.finfo(np.float32).eps.item()
 	R = 0
@@ -502,15 +504,19 @@ def main():
 		denom_plot.append(denom)
 
 		# compute gradient of current trajectory using old agents. This requires old agents with gradients
+		old_agent_optimizers = []
+		for i in range(num_agents):
+			old_agent_optimizers.append(SGD_GT(phi[i].parameters(), lr=3e-4, momentum=args.momentum))
+
 		list_grad_traj_prev_weights = []
-		for policy, old_policy, optimizer in zip(agents, phi, optimizers):
-			prev_g = compute_grad_traj_prev_weights(state_list, action_list, policy, old_policy, optimizer)
+		for policy, old_policy, optimizer in zip(agents, phi, old_agent_optimizers):
+			prev_g = compute_grad_traj_prev_weights(state_list, action_list, policy, old_policy, optimizer, episode)
 			list_grad_traj_prev_weights.append(prev_g)
 
 		# compute gradient surrogate
 		u_k_list = []
 		for policy, optimizer, prev_u, isw, prev_g in zip(agents, optimizers, prev_u_list, isw_list, list_grad_traj_prev_weights):
-			u_k = compute_u(policy, optimizer, prev_u, isw, prev_g, args.beta)
+			u_k = compute_u(policy, optimizer, prev_u, isw, prev_g, args.beta, episode)
 			u_k_list.append(u_k)
 
 		## take consensus of v_k first

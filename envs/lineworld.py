@@ -39,6 +39,7 @@ class LineWorld(gym.Env):
 			self.done = True
 			self.reward = [1]*self.dimension
 		return self.state, self.reward, self.done
+		
 	def reset(self):
 		self.state = np.random.choice(self.bounds, self.dimension, replace=True)
 		while np.linalg.norm(self.state) < 5*self.step_size:
