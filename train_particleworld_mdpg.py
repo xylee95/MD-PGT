@@ -2,7 +2,6 @@ import argparse
 import gym
 import os
 import numpy as np
-from itertools import count
 import torch
 import torch.optim as optim
 import matplotlib.pyplot as plt

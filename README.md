@@ -23,3 +23,6 @@ Repository for implementing decentralized PGT
 - update_functions.py : all functions related to update rules and consensus for MDPG and MDPGT
 
 Both MDPG and MDPGT has the option of using Minibatch Initialization to compute batch gradient surrogate.
+
+# To do:
+- Implemeny different consensus topology using adj matrix instead of global average
