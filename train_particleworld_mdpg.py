@@ -214,7 +214,7 @@ def global_average(agents, num_agents):
 
 	return agents
 
-def compute_grads(policy, optimizer):
+def compute_grads(policy, optimizer, minibatch_init):
 	eps = np.finfo(np.float32).eps.item()
 	R = 0
 	policy_loss = []
@@ -232,10 +232,14 @@ def compute_grads(policy, optimizer):
 	print('Initial Loss:',policy_loss)
 	policy_loss.backward()
 	# list of tensors gradients, each tensor has shape
-	grad = [p.grad.detach().clone().flatten() if (p.requires_grad is True and p.grad is not None)
+	if minibatch_init == True:
+		grad = [np.array(p.grad.detach().clone().flatten()) if (p.requires_grad is True and p.grad is not None)
 			else None for group in optimizer.param_groups for p in group['params']]
-	
+	elif minibatch_init == False:
+		grad = [p.grad.detach().clone().flatten() if (p.requires_grad is True and p.grad is not None)
+			else None for group in optimizer.param_groups for p in group['params']]
 	return grad
+
 
 def update_weights(policy, optimizer, grads=None):
 	if grads is not None:
@@ -385,7 +389,7 @@ def main():
 
 			single_traj_grads = []
 			for policy, optimizer in zip(agents, optimizers):
-				grads = compute_grads(policy, optimizer)
+				grads = compute_grads(policy, optimizer, minibatch_init=True)
 				single_traj_grads.append(grads) #list of num_agent x list grads of every layer
 				optimizer.zero_grad()
 				del policy.rewards[:]
@@ -400,7 +404,10 @@ def main():
 		# initializating with consensus of weights and grads
 		prev_u_list = []
 		for avg_grads in minibatch_grads:
-			prev_u_list.append(avg_grads)
+			temp = []
+			for layer in avg_grads:
+				temp.append(torch.FloatTensor(layer))
+			prev_u_list.append(temp)
 		agents = global_average(agents, num_agents)
 		for policy, optimizer, u_k in zip(agents, optimizers, prev_u_list):
 			update_weights(policy, optimizer, grads=u_k)
@@ -434,7 +441,7 @@ def main():
 		# initializating with consensus of weights and grads
 		prev_u_list = []
 		for policy, optimizer in zip(agents, optimizers):
-			grads = compute_grads(policy, optimizer)
+			grads = compute_grads(policy, optimizer, minibatch_init=False)
 			prev_u_list.append(grads)
 		agents = global_average(agents, num_agents)
 		# doesn't matter if grad is provided here as u_k = g

@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import pfrl
 import pdb
 import envs
+from envs import lineworld
 import copy
 
 def make_env(scenario_name, num_agents=2, num_landmarks=2):
@@ -214,7 +215,7 @@ def global_average(agents, num_agents):
 
 	return agents
 
-def compute_grads(policy, optimizer):
+def compute_grads(policy, optimizer, minibatch_init):
 	eps = np.finfo(np.float32).eps.item()
 	R = 0
 	policy_loss = []
@@ -232,7 +233,11 @@ def compute_grads(policy, optimizer):
 	print('Initial Loss:',policy_loss)
 	policy_loss.backward()
 	# list of tensors gradients, each tensor has shape
-	grad = [p.grad.detach().clone().flatten() if (p.requires_grad is True and p.grad is not None)
+	if minibatch_init == True:
+		grad = [np.array(p.grad.detach().clone().flatten()) if (p.requires_grad is True and p.grad is not None)
+			else None for group in optimizer.param_groups for p in group['params']]
+	elif minibatch_init == False:
+		grad = [p.grad.detach().clone().flatten() if (p.requires_grad is True and p.grad is not None)
 			else None for group in optimizer.param_groups for p in group['params']]
 	
 	return grad
@@ -361,7 +366,6 @@ def main():
 	elif args.minibatch_init == True:
 		fpath = os.path.join('mdpgt_results_min_' + str(args.min_isw) + 'isw', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta) + 'MI' + str(args.minibatch_size))
 
-
 	if not os.path.isdir(fpath):
 		os.makedirs(fpath)
 
@@ -423,14 +427,13 @@ def main():
 
 			single_traj_grads = []
 			for policy, optimizer in zip(agents, optimizers):
-				grads = compute_grads(policy, optimizer)
+				grads = compute_grads(policy, optimizer, minibatch_init=True)
 				single_traj_grads.append(grads) #list of num_agent x list grads of every layer
 				optimizer.zero_grad()
 				del policy.rewards[:]
 				del policy.saved_log_probs[:]
 
 			minibatch_grads.append(single_traj_grads) #list of minibatch x num_agent x list of grads of every layer
-
 		# need grads to be shape num_agent x list of grads of every layer
 		minibatch_grads = np.asarray(minibatch_grads)
 		minibatch_grads = np.mean(minibatch_grads, 0) #average across batch
@@ -438,7 +441,10 @@ def main():
 		# initializating with consensus of weights and grads
 		prev_u_list = []
 		for avg_grads in minibatch_grads:
-			prev_u_list.append(avg_grads)
+			temp = []
+			for layer in avg_grads:
+				temp.append(torch.FloatTensor(layer))
+			prev_u_list.append(temp)
 		v_k_list = copy.deepcopy(prev_u_list)
 		consensus_v_k_list = take_consensus(v_k_list, num_agents)
 		agents = global_average(agents, num_agents)
@@ -474,7 +480,7 @@ def main():
 		# initializating with consensus of weights and grads
 		prev_u_list = []
 		for policy, optimizer in zip(agents, optimizers):
-			grads = compute_grads(policy, optimizer)
+			grads = compute_grads(policy, optimizer, minibatch_init=False)
 			prev_u_list.append(grads)
 		v_k_list = copy.deepcopy(prev_u_list)
 		consensus_v_k_list = take_consensus(v_k_list, num_agents)
