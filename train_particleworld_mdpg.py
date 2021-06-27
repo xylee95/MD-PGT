@@ -17,7 +17,6 @@ import matplotlib.pyplot as plt
 import pfrl
 import pdb
 import envs
-from envs import lineworld
 import copy
 
 def make_env(scenario_name, num_agents=2, num_landmarks=2):
@@ -56,8 +55,7 @@ parser.add_argument('--max_eps_len', type=int, default=50, help='Number of steps
 parser.add_argument('--num_episodes', type=int, default=25000, help='Number training episodes')
 parser.add_argument('--env', type=str, default='particle_world', help='Training env')
 parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
-parser.add_argument('--opt', type=str, default='sgd_m', help='Optimizer',
-					choices=('adam','sgd_m'))
+parser.add_argument('--opt', type=str, default='sgd_m', help='Optimizer')
 parser.add_argument('--momentum', type=float, default=0.0, help='Momentum term for SGD')
 parser.add_argument('--beta', type=float, default=0.9, help='Beta term for surrogate gradient')
 parser.add_argument('--min_isw', type=float, default=0.0, help='Minimum value to set ISW')
@@ -346,14 +344,9 @@ def main():
 	agents = [] 
 	optimizers = []
 
-	if args.opt == 'adam':
-		for i in range(num_agents):
-			agents.append(Policy(state_dim=len(sample_obs)).to(device))
-			optimizers.append(optim.Adam(agents[i].parameters(), lr=3e-4))
-	elif args.opt == 'sgd_m':
-		for i in range(num_agents):
-			agents.append(Policy(state_dim=len(sample_obs)).to(device))
-			optimizers.append(SGD_M(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
+	for i in range(num_agents):
+		agents.append(Policy(state_dim=len(sample_obs)).to(device))
+		optimizers.append(SGD_M(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
 
 	if args.minibatch_init:
 		# if using Minibatch - Initialization
