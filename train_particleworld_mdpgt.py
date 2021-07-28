@@ -32,6 +32,7 @@ parser.add_argument('--beta', type=float, default=0.9, help='Beta term for surro
 parser.add_argument('--min_isw', type=float, default=0.0, help='Minimum value to set ISW')
 parser.add_argument('--minibatch_init', type=bool, default=False, help='Initialize grad with minibatch')
 parser.add_argument('--minibatch_size', type=int, default=32, help='Number of trajectory for warm startup')
+parser.add_argument('--topology', type=str, default='dense', choices=('dense','ring','bipartite'))
 args = parser.parse_args()
 torch.manual_seed(args.seed)
 
@@ -91,9 +92,9 @@ def main():
 	num_agents = args.num_agents
 	dimension = args.dim
 	if args.minibatch_init == False:
-		fpath = os.path.join('mdpgt_results_min_' + str(args.min_isw) + 'isw', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta))
+		fpath = os.path.join('mdpgt_results_min_' + str(args.min_isw) + 'isw', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta) + '_' + args.topology)
 	elif args.minibatch_init == True:
-		fpath = os.path.join('mdpgt_results_min_' + str(args.min_isw) + 'isw', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta) + 'MI' + str(args.minibatch_size))
+		fpath = os.path.join('mdpgt_results_min_' + str(args.min_isw) + 'isw', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta) + '_' + args.topology + 'MI' + str(args.minibatch_size))
 	if not os.path.isdir(fpath):
 		os.makedirs(fpath)
 
@@ -116,6 +117,8 @@ def main():
 		agents.append(model.Policy(state_dim=len(sample_obs), action_dim=4).to(device))
 		optimizers.append(SGD_GT(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
 
+	# load connectivity matrix
+	pi = load_pi(num_agents=args.num_agents, topology=args.topology)
 	if args.minibatch_init:
 		# if using Minibatch - Initialization
 		# For i in range B trajectories:
@@ -206,9 +209,17 @@ def main():
 
 	v_k_list = copy.deepcopy(prev_u_list)
 
-	consensus_v_k_list = take_consensus(v_k_list, num_agents)
+	consensus_v_k_list = take_grad_consensus(v_k_list, pi)
 
-	agents = global_average(agents, num_agents)
+	# ##### for debugging new and old method
+	# v_new = take_grad_consensus(v_k_list, pi)
+	# v_old = take_consensus(v_k_list, args.num_agents)
+
+	# a_new = take_param_consensus(agents, pi)
+	# a_old = global_average(agents, args.num_agents)
+	# ######
+
+	agents = take_param_consensus(agents, pi)
 
 	for policy, optimizer, v_k in zip(agents, optimizers, consensus_v_k_list):
 		update_weights(policy, optimizer, grads=v_k)
@@ -288,7 +299,7 @@ def main():
 			u_k_list.append(u_k)
 
 		## take consensus of v_k first
-		v_k_list = take_consensus(v_k_list, num_agents)
+		v_k_list = take_grad_consensus(v_k_list, pi)
 
 		## update v_k+1
 		next_v_k_list = []
@@ -300,8 +311,8 @@ def main():
 		prev_u_list = copy.deepcopy(u_k_list)
 
 		# take consensus of parameters and v_k+1
-		agents = global_average(agents, num_agents)
-		consensus_next_v_k_list = take_consensus(next_v_k_list, num_agents)
+		agents = take_param_consensus(agents, pi)
+		consensus_next_v_k_list = take_grad_consensus(next_v_k_list, pi)
 
 		# update_weights with v_k+1
 		for policy, optimizer, v_k in zip(agents, optimizers, consensus_next_v_k_list):

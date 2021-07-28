@@ -1,8 +1,79 @@
 import torch
 import numpy as np
+import json
+
+###### Function related to topology and pi
+def load_pi(num_agents, topology):
+	wsize = num_agents
+	if topology == 'dense':
+		topo = 1
+	elif topology == 'ring':
+		topo = 2
+	elif topology == 'bipartite':
+		topo = 3
+
+	with open('generate_topology/connectivity/%s_%s.json'%(wsize,topo), 'r') as f:
+		cdict = json.load(f) # connectivity dict.
+	return cdict['pi']
 
 ###### Update functions shared by DPG, MDPG and MDPGT
 
+# this should act the same as global average but generalize to various topology
+def take_param_consensus(agents, pi):
+	layer_1_w = dict()
+	layer_1_b = dict()
+
+	layer_2_w = dict()
+	layer_2_b = dict()
+
+	layer_3_w = dict()
+	layer_3_b = dict()
+
+	for i in range(len(agents)):
+		layer_1_w[i] = agents[i].dense1.weight.data
+		layer_1_b[i] = agents[i].dense1.bias.data
+
+		layer_2_w[i] = agents[i].dense2.weight.data
+		layer_2_b[i] = agents[i].dense2.bias.data
+
+		layer_3_w[i] = agents[i].dense3.weight.data
+		layer_3_b[i] = agents[i].dense3.bias.data
+
+	# for each agent
+	for j in range(len(agents)):
+		consensus_layer_1_w = 0
+		consensus_layer_1_b = 0 
+
+		consensus_layer_2_w = 0
+		consensus_layer_2_b = 0 
+
+		consensus_layer_3_w = 0
+		consensus_layer_3_b = 0 
+
+		# for each row of pi, loop over columns (other agents)
+		for k in range(len(agents)):
+			consensus_layer_1_w += pi[j][k]*layer_1_w[k]
+			consensus_layer_1_b += pi[j][k]*layer_1_b[k] 
+
+			consensus_layer_2_w += pi[j][k]*layer_2_w[k]
+			consensus_layer_2_b += pi[j][k]*layer_2_b[k] 
+
+			consensus_layer_3_w += pi[j][k]*layer_3_w[k]
+			consensus_layer_3_b += pi[j][k]*layer_3_b[k] 
+ 
+
+		agents[j].dense1.weight.data = consensus_layer_1_w
+		agents[j].dense1.bias.data = consensus_layer_1_b
+
+		agents[j].dense2.weight.data = consensus_layer_2_w
+		agents[j].dense2.bias.data = consensus_layer_2_b
+
+		agents[j].dense3.weight.data = consensus_layer_3_w
+		agents[j].dense3.bias.data = consensus_layer_3_b
+
+	return agents
+
+# unused, remove later
 def global_average(agents, num_agents):
 	layer_1_w = []
 	layer_1_b = []
@@ -188,6 +259,52 @@ def update_v(v_k, u_k, prev_u_k):
 		next_v_k[i] = v_k[i] + u_k[i] - prev_u_k[i]
 	return next_v_k
 
+def take_grad_consensus(v_k_list, pi):
+	# v_k_list is a list of n agents, each agent a list of 6 layers
+	grads_0 = dict()
+	grads_1 = dict()
+	grads_2 = dict()
+	grads_3 = dict()
+	grads_4 = dict()
+	grads_5 = dict()
+
+	# grads_0 denotes dict of gradient of layer 0 with keys of n agents
+	for i in range(len(v_k_list)):
+		grads_0[i] = v_k_list[i][0]
+		grads_1[i] = v_k_list[i][1]
+		grads_2[i] = v_k_list[i][2]
+		grads_3[i] = v_k_list[i][3]
+		grads_4[i] = v_k_list[i][4]
+		grads_5[i] = v_k_list[i][5]
+
+	consensus_v_k_list = []
+
+	# for each agent
+	for j in range(len(v_k_list)):
+
+		consensus_grad_0 = 0
+		consensus_grad_1 = 0
+		consensus_grad_2 = 0
+		consensus_grad_3 = 0
+		consensus_grad_4 = 0
+		consensus_grad_5 = 0
+
+		# for each agent, loop over other agent
+		for k in range(len(v_k_list)):
+
+			consensus_grad_0 += pi[j][k]*grads_0[k]
+			consensus_grad_1 += pi[j][k]*grads_1[k]
+			consensus_grad_2 += pi[j][k]*grads_2[k]
+			consensus_grad_3 += pi[j][k]*grads_3[k]
+			consensus_grad_4 += pi[j][k]*grads_4[k]
+			consensus_grad_5 += pi[j][k]*grads_5[k]
+
+		consensus_v_k_list.append([consensus_grad_0, consensus_grad_1, consensus_grad_2, \
+			consensus_grad_3, consensus_grad_4, consensus_grad_5])
+
+	return consensus_v_k_list
+
+#unused, remove later
 def take_consensus(v_k_list, num_agents):
 	# list of n agents, each agent a list of 6 layers
 	grads_0 = []
