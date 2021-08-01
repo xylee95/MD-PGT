@@ -212,11 +212,20 @@ def main():
 	consensus_v_k_list = take_grad_consensus(v_k_list, pi)
 
 	# ##### for debugging new and old method
-	# v_new = take_grad_consensus(v_k_list, pi)
-	# v_old = take_consensus(v_k_list, args.num_agents)
-
-	# a_new = take_param_consensus(agents, pi)
-	# a_old = global_average(agents, args.num_agents)
+	v_new = take_grad_consensus(v_k_list, pi)
+	v_old = take_consensus(v_k_list, args.num_agents)
+	for i in range(5):
+		for j in range(6):
+			print('Agent' + str(i) + 'Layer' + str(j) + ' ' + str(sum(v_new[i][j] - v_old[i][j])))
+			if torch.abs(sum(v_new[i][j] - v_old[i][j])) > 1e-6:
+				st
+	a_new = take_param_consensus(copy.deepcopy(old_agents), pi)
+	a_old = global_average(copy.deepcopy(old_agents), args.num_agents)
+	for i in range(5):
+		print('Dense1 weight ', sum(sum(a_new[0].dense1.weight.data - a_old[0].dense1.weight.data)))
+		print('Dense3 weight ', sum(sum(a_new[0].dense3.weight.data - a_old[0].dense3.weight.data)))
+		print('Dense2 bias ',sum(a_new[0].dense2.bias.data - a_old[0].dense2.bias.data))
+		print('Dense3 bias ',sum(a_new[0].dense3.bias.data - a_old[0].dense3.bias.data))
 	# ######
 
 	agents = take_param_consensus(agents, pi)
@@ -301,6 +310,18 @@ def main():
 		## take consensus of v_k first
 		v_k_list = take_grad_consensus(v_k_list, pi)
 
+		# ##### for debugging new and old method
+		print('--------------------')
+		print('debug 2')
+		v_new = take_grad_consensus(v_k_list, pi)
+		v_old = take_consensus(v_k_list, args.num_agents)
+		for i in range(5):
+			for j in range(6):
+				print('Agent' + str(i) + 'Layer' + str(j) + ' ' + str(sum(v_new[i][j] - v_old[i][j])))
+				if torch.abs(sum(v_new[i][j] - v_old[i][j])) > 1e-5:
+					st
+		# ######
+
 		## update v_k+1
 		next_v_k_list = []
 		for v_k, u_k, prev_u_k in zip(v_k_list, u_k_list, prev_u_list):
@@ -313,6 +334,25 @@ def main():
 		# take consensus of parameters and v_k+1
 		agents = take_param_consensus(agents, pi)
 		consensus_next_v_k_list = take_grad_consensus(next_v_k_list, pi)
+
+		# ##### for debugging new and old method
+		print('--------------------')
+		print('debug 3')
+		v_new = take_grad_consensus(v_k_list, pi)
+		v_old = take_consensus(v_k_list, args.num_agents)
+		for i in range(5):
+			for j in range(6):
+				print('Agent' + str(i) + 'Layer' + str(j) + ' ' + str(sum(v_new[i][j] - v_old[i][j])))
+				if torch.abs(sum(v_new[i][j] - v_old[i][j])) > 1e-5:
+					st
+		a_new = take_param_consensus(copy.deepcopy(old_agents), pi)
+		a_old = global_average(copy.deepcopy(old_agents), args.num_agents)
+		for i in range(5):
+			print('Dense1 weight ', sum(sum(a_new[0].dense1.weight.data - a_old[0].dense1.weight.data)))
+			print('Dense3 weight ', sum(sum(a_new[0].dense3.weight.data - a_old[0].dense3.weight.data)))
+			print('Dense2 bias ',sum(a_new[0].dense2.bias.data - a_old[0].dense2.bias.data))
+			print('Dense3 bias ',sum(a_new[0].dense3.bias.data - a_old[0].dense3.bias.data))
+		# ######
 
 		# update_weights with v_k+1
 		for policy, optimizer, v_k in zip(agents, optimizers, consensus_next_v_k_list):
