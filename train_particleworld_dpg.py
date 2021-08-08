@@ -22,18 +22,20 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
 parser.add_argument('--dim', type=int, default=5, help='Number of dimension')
 parser.add_argument('--num_agents', type=int, default=5, help='Number of agents')
 parser.add_argument('--max_eps_len', type=int, default=50, help='Number of steps per episode')
-parser.add_argument('--num_episodes', type=int, default=25000, help='Number training episodes')
+parser.add_argument('--num_episodes', type=int, default=50000, help='Number training episodes')
 parser.add_argument('--env', type=str, default='particle_world', help='Training env')
 parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
 parser.add_argument('--opt', type=str, default='sgd', help='Optimizer')
 parser.add_argument('--momentum', type=float, default=0.0, help='Momentum term for SGD')
+parser.add_argument('--topology', type=str, default='dense', choices=('dense','ring','bipartite'))
+
 args = parser.parse_args()
 torch.manual_seed(args.seed)
 
 def main():
     num_agents = args.num_agents
     dimension = args.dim
-    fpath = os.path.join('dpg_results', args.env, str(dimension) + 'D', args.opt)
+    fpath = os.path.join('dpg_results', args.env, str(dimension) + 'D', args.opt + str(args.topology))
     if not os.path.isdir(fpath):
         os.makedirs(fpath)
 
@@ -57,8 +59,9 @@ def main():
         agents.append(model.Policy(state_dim=len(sample_obs), action_dim=4).to(device))
         optimizers.append(optim.SGD(agents[i].parameters(), lr=3e-4, momentum=0.0))
 
+    pi = load_pi(num_agents=args.num_agents, topology=args.topology)
     # RL setup
-    num_episodes = args.
+    num_episodes = args.num_episodes
     max_eps_len = args.max_eps_len
     done = False
     R = 0 
@@ -96,7 +99,10 @@ def main():
 
         for policy, optimizer in zip(agents, optimizers):
             _ = compute_grads(args, policy, optimizer)
-        agents = global_average(agents, num_agents)
+
+        #agents = global_average(agents, num_agents)
+        agents = take_param_consensus(agents, pi)
+
         for policy, optimizer in zip(agents, optimizers):
             update_weights(policy, optimizer)
 

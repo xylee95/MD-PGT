@@ -20,58 +20,99 @@ def load_pi(num_agents, topology):
 
 # this should act the same as global average but generalize to various topology
 def take_param_consensus(agents, pi):
-	layer_1_w = dict()
-	layer_1_b = dict()
+	layer_1_w = []
+	layer_1_b = []
 
-	layer_2_w = dict()
-	layer_2_b = dict()
+	layer_2_w = []
+	layer_2_b = []
 
-	layer_3_w = dict()
-	layer_3_b = dict()
+	layer_3_w = []
+	layer_3_b = []
 
-	for i in range(len(agents)):
-		layer_1_w[i] = agents[i].dense1.weight.data
-		layer_1_b[i] = agents[i].dense1.bias.data
+	for agent in agents:
+		layer_1_w.append(agent.dense1.weight.data)
+		layer_1_b.append(agent.dense1.bias.data)
 
-		layer_2_w[i] = agents[i].dense2.weight.data
-		layer_2_b[i] = agents[i].dense2.bias.data
+		layer_2_w.append(agent.dense2.weight.data)
+		layer_2_b.append(agent.dense2.bias.data)
 
-		layer_3_w[i] = agents[i].dense3.weight.data
-		layer_3_b[i] = agents[i].dense3.bias.data
+		layer_3_w.append(agent.dense3.weight.data)
+		layer_3_b.append(agent.dense3.bias.data)
 
-	# for each agent
-	for j in range(len(agents)):
-		consensus_layer_1_w = 0
-		consensus_layer_1_b = 0 
+	# layer_1_w = torch.sum(torch.stack(tuple(layer_1_w)),0)
+	# layer_1_b = torch.sum(torch.stack(tuple(layer_1_b)),0)
 
-		consensus_layer_2_w = 0
-		consensus_layer_2_b = 0 
+	# layer_2_w = torch.sum(torch.stack(tuple(layer_2_w)),0)
+	# layer_2_b = torch.sum(torch.stack(tuple(layer_2_b)),0)
 
-		consensus_layer_3_w = 0
-		consensus_layer_3_b = 0 
+	# layer_3_w = torch.sum(torch.stack(tuple(layer_3_w)),0)
+	# layer_3_b = torch.sum(torch.stack(tuple(layer_3_b)),0)
 
-		# for each row of pi, loop over columns (other agents)
-		for k in range(len(agents)):
-			consensus_layer_1_w += pi[j][k]*layer_1_w[k]
-			consensus_layer_1_b += pi[j][k]*layer_1_b[k] 
 
-			consensus_layer_2_w += pi[j][k]*layer_2_w[k]
-			consensus_layer_2_b += pi[j][k]*layer_2_b[k] 
+	for agent_idx, agent in enumerate(agents):
+		agent.dense1.weight.data = torch.sum(torch.stack(tuple(layer_1_w))*torch.tensor(pi[agent_idx]).unsqueeze(-1).unsqueeze(-1),0).clone()
+		agent.dense1.bias.data = torch.sum(torch.stack(tuple(layer_1_b))*torch.tensor(pi[agent_idx]).unsqueeze(-1),0).clone()
 
-			consensus_layer_3_w += pi[j][k]*layer_3_w[k]
-			consensus_layer_3_b += pi[j][k]*layer_3_b[k] 
- 
+		agent.dense2.weight.data = torch.sum(torch.stack(tuple(layer_2_w))*torch.tensor(pi[agent_idx]).unsqueeze(-1).unsqueeze(-1),0).clone()
+		agent.dense2.bias.data = torch.sum(torch.stack(tuple(layer_2_b))*torch.tensor(pi[agent_idx]).unsqueeze(-1),0).clone()
 
-		agents[j].dense1.weight.data = consensus_layer_1_w
-		agents[j].dense1.bias.data = consensus_layer_1_b
-
-		agents[j].dense2.weight.data = consensus_layer_2_w
-		agents[j].dense2.bias.data = consensus_layer_2_b
-
-		agents[j].dense3.weight.data = consensus_layer_3_w
-		agents[j].dense3.bias.data = consensus_layer_3_b
+		agent.dense3.weight.data = torch.sum(torch.stack(tuple(layer_3_w))*torch.tensor(pi[agent_idx]).unsqueeze(-1).unsqueeze(-1),0).clone()
+		agent.dense3.bias.data = torch.sum(torch.stack(tuple(layer_3_b))*torch.tensor(pi[agent_idx]).unsqueeze(-1),0).clone()
 
 	return agents
+
+	# layer_1_w = dict()
+	# layer_1_b = dict()
+
+	# layer_2_w = dict()
+	# layer_2_b = dict()
+
+	# layer_3_w = dict()
+	# layer_3_b = dict()
+
+	# for i in range(len(agents)):
+	# 	layer_1_w[i] = agents[i].dense1.weight.data
+	# 	layer_1_b[i] = agents[i].dense1.bias.data
+
+	# 	layer_2_w[i] = agents[i].dense2.weight.data
+	# 	layer_2_b[i] = agents[i].dense2.bias.data
+
+	# 	layer_3_w[i] = agents[i].dense3.weight.data
+	# 	layer_3_b[i] = agents[i].dense3.bias.data
+
+	# # for each agent
+	# for j in range(len(agents)):
+	# 	consensus_layer_1_w = 0
+	# 	consensus_layer_1_b = 0 
+
+	# 	consensus_layer_2_w = 0
+	# 	consensus_layer_2_b = 0 
+
+	# 	consensus_layer_3_w = 0
+	# 	consensus_layer_3_b = 0 
+
+	# 	# for each row of pi, loop over columns (other agents)
+	# 	for k in range(len(agents)):
+	# 		consensus_layer_1_w += pi[j][k]*layer_1_w[k]
+	# 		consensus_layer_1_b += pi[j][k]*layer_1_b[k] 
+
+	# 		consensus_layer_2_w += pi[j][k]*layer_2_w[k]
+	# 		consensus_layer_2_b += pi[j][k]*layer_2_b[k] 
+
+	# 		consensus_layer_3_w += pi[j][k]*layer_3_w[k]
+	# 		consensus_layer_3_b += pi[j][k]*layer_3_b[k] 
+ 
+
+	# 	agents[j].dense1.weight.data = consensus_layer_1_w
+	# 	agents[j].dense1.bias.data = consensus_layer_1_b
+
+	# 	agents[j].dense2.weight.data = consensus_layer_2_w
+	# 	agents[j].dense2.bias.data = consensus_layer_2_b
+
+	# 	agents[j].dense3.weight.data = consensus_layer_3_w
+	# 	agents[j].dense3.bias.data = consensus_layer_3_b
+
+	# return agents
 
 # unused, remove later
 def global_average(agents, num_agents):
@@ -94,24 +135,24 @@ def global_average(agents, num_agents):
 		layer_3_w.append(agent.dense3.weight.data)
 		layer_3_b.append(agent.dense3.bias.data)
 
-	layer_1_w = torch.sum(torch.stack(layer_1_w),0) / num_agents
-	layer_1_b = torch.sum(torch.stack(layer_1_b),0) / num_agents
+	layer_1_w = torch.sum(torch.stack(layer_1_w)/num_agents,0) 
+	layer_1_b = torch.sum(torch.stack(layer_1_b)/num_agents,0)
 
-	layer_2_w = torch.sum(torch.stack(layer_2_w),0) / num_agents
-	layer_2_b = torch.sum(torch.stack(layer_2_b),0) / num_agents
+	layer_2_w = torch.sum(torch.stack(layer_2_w)/num_agents,0)
+	layer_2_b = torch.sum(torch.stack(layer_2_b)/num_agents,0)
 
-	layer_3_w = torch.sum(torch.stack(layer_3_w),0) / num_agents
-	layer_3_b = torch.sum(torch.stack(layer_3_b),0) / num_agents
+	layer_3_w = torch.sum(torch.stack(layer_3_w)/num_agents,0)
+	layer_3_b = torch.sum(torch.stack(layer_3_b)/num_agents,0)
 
 	for agent in agents:
-		agent.dense1.weight.data = layer_1_w
-		agent.dense1.bias.data = layer_1_b
+		agent.dense1.weight.data = layer_1_w.clone()
+		agent.dense1.bias.data = layer_1_b.clone()
 
-		agent.dense2.weight.data = layer_2_w
-		agent.dense2.bias.data = layer_2_b
+		agent.dense2.weight.data = layer_2_w.clone()
+		agent.dense2.bias.data = layer_2_b.clone()
 
-		agent.dense3.weight.data = layer_3_w
-		agent.dense3.bias.data = layer_3_b
+		agent.dense3.weight.data = layer_3_w.clone()
+		agent.dense3.bias.data = layer_3_b.clone()
 	return agents
 
 def compute_IS_weight(action_list, state_list, cur_policy, old_policy, min_isw):
@@ -260,49 +301,80 @@ def update_v(v_k, u_k, prev_u_k):
 	return next_v_k
 
 def take_grad_consensus(v_k_list, pi):
-	# v_k_list is a list of n agents, each agent a list of 6 layers
-	grads_0 = dict()
-	grads_1 = dict()
-	grads_2 = dict()
-	grads_3 = dict()
-	grads_4 = dict()
-	grads_5 = dict()
 
-	# grads_0 denotes dict of gradient of layer 0 with keys of n agents
+	# list of n agents, each agent a list of 6 layers
+	grads_0 = []
+	grads_1 = []
+	grads_2 = []
+	grads_3 = []
+	grads_4 = []
+	grads_5 = []
+
 	for i in range(len(v_k_list)):
-		grads_0[i] = v_k_list[i][0]
-		grads_1[i] = v_k_list[i][1]
-		grads_2[i] = v_k_list[i][2]
-		grads_3[i] = v_k_list[i][3]
-		grads_4[i] = v_k_list[i][4]
-		grads_5[i] = v_k_list[i][5]
+		grads_0.append(v_k_list[i][0])
+		grads_1.append(v_k_list[i][1])
+		grads_2.append(v_k_list[i][2])
+		grads_3.append(v_k_list[i][3])
+		grads_4.append(v_k_list[i][4])
+		grads_5.append(v_k_list[i][5])
 
-	consensus_v_k_list = []
-
-	# for each agent
+	consensus_v_k = []
 	for j in range(len(v_k_list)):
+		grads_0_j = torch.sum(torch.stack(tuple(grads_0))*torch.tensor(pi[j]).unsqueeze(-1),0).clone()
+		grads_1_j = torch.sum(torch.stack(tuple(grads_1))*torch.tensor(pi[j]).unsqueeze(-1),0).clone()
+		grads_2_j = torch.sum(torch.stack(tuple(grads_2))*torch.tensor(pi[j]).unsqueeze(-1),0).clone()
+		grads_3_j = torch.sum(torch.stack(tuple(grads_3))*torch.tensor(pi[j]).unsqueeze(-1),0).clone()
+		grads_4_j = torch.sum(torch.stack(tuple(grads_4))*torch.tensor(pi[j]).unsqueeze(-1),0).clone()
+		grads_5_j = torch.sum(torch.stack(tuple(grads_5))*torch.tensor(pi[j]).unsqueeze(-1),0).clone()
+		v_k_list = [grads_0_j, grads_1_j, grads_2_j, grads_3_j, grads_4_j, grads_5_j]
+		consensus_v_k.append(v_k_list)
 
-		consensus_grad_0 = 0
-		consensus_grad_1 = 0
-		consensus_grad_2 = 0
-		consensus_grad_3 = 0
-		consensus_grad_4 = 0
-		consensus_grad_5 = 0
+	return consensus_v_k
 
-		# for each agent, loop over other agent
-		for k in range(len(v_k_list)):
 
-			consensus_grad_0 += pi[j][k]*grads_0[k]
-			consensus_grad_1 += pi[j][k]*grads_1[k]
-			consensus_grad_2 += pi[j][k]*grads_2[k]
-			consensus_grad_3 += pi[j][k]*grads_3[k]
-			consensus_grad_4 += pi[j][k]*grads_4[k]
-			consensus_grad_5 += pi[j][k]*grads_5[k]
+	# # v_k_list is a list of n agents, each agent a list of 6 layers
+	# grads_0 = dict()
+	# grads_1 = dict()
+	# grads_2 = dict()
+	# grads_3 = dict()
+	# grads_4 = dict()
+	# grads_5 = dict()
 
-		consensus_v_k_list.append([consensus_grad_0, consensus_grad_1, consensus_grad_2, \
-			consensus_grad_3, consensus_grad_4, consensus_grad_5])
+	# # grads_0 denotes dict of gradient of layer 0 with keys of n agents
+	# for i in range(len(v_k_list)):
+	# 	grads_0[i] = v_k_list[i][0]
+	# 	grads_1[i] = v_k_list[i][1]
+	# 	grads_2[i] = v_k_list[i][2]
+	# 	grads_3[i] = v_k_list[i][3]
+	# 	grads_4[i] = v_k_list[i][4]
+	# 	grads_5[i] = v_k_list[i][5]
 
-	return consensus_v_k_list
+	# consensus_v_k_list = []
+
+	# # for each agent
+	# for j in range(len(v_k_list)):
+
+	# 	consensus_grad_0 = 0
+	# 	consensus_grad_1 = 0
+	# 	consensus_grad_2 = 0
+	# 	consensus_grad_3 = 0
+	# 	consensus_grad_4 = 0
+	# 	consensus_grad_5 = 0
+
+	# 	# for each agent, loop over other agent
+	# 	for k in range(len(v_k_list)):
+
+	# 		consensus_grad_0 += pi[j][k]*grads_0[k]
+	# 		consensus_grad_1 += pi[j][k]*grads_1[k]
+	# 		consensus_grad_2 += pi[j][k]*grads_2[k]
+	# 		consensus_grad_3 += pi[j][k]*grads_3[k]
+	# 		consensus_grad_4 += pi[j][k]*grads_4[k]
+	# 		consensus_grad_5 += pi[j][k]*grads_5[k]
+
+	# 	consensus_v_k_list.append([consensus_grad_0, consensus_grad_1, consensus_grad_2, \
+	# 		consensus_grad_3, consensus_grad_4, consensus_grad_5])
+
+	# return consensus_v_k_list
 
 #unused, remove later
 def take_consensus(v_k_list, num_agents):
@@ -322,12 +394,12 @@ def take_consensus(v_k_list, num_agents):
 		grads_4.append(v_k_list[i][4])
 		grads_5.append(v_k_list[i][5])
 
-	grads_0 = torch.sum(torch.stack(grads_0),0)/len(grads_0)
-	grads_1 = torch.sum(torch.stack(grads_1),0)/len(grads_1)
-	grads_2 = torch.sum(torch.stack(grads_2),0)/len(grads_2)
-	grads_3 = torch.sum(torch.stack(grads_3),0)/len(grads_3)
-	grads_4 = torch.sum(torch.stack(grads_4),0)/len(grads_4)
-	grads_5 = torch.sum(torch.stack(grads_5),0)/len(grads_5)
+	grads_0 = torch.sum(torch.stack(grads_0)/len(grads_0),0).clone()
+	grads_1 = torch.sum(torch.stack(grads_1)/len(grads_1),0).clone()
+	grads_2 = torch.sum(torch.stack(grads_2)/len(grads_2),0).clone()
+	grads_3 = torch.sum(torch.stack(grads_3)/len(grads_3),0).clone()
+	grads_4 = torch.sum(torch.stack(grads_4)/len(grads_4),0).clone()
+	grads_5 = torch.sum(torch.stack(grads_5)/len(grads_5),0).clone()
 
 	v_k_list = [grads_0, grads_1, grads_2, grads_3, grads_4, grads_5]
 

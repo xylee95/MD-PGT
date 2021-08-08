@@ -23,7 +23,7 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
 parser.add_argument('--dim', type=int, default=2, help='Number of dimension')
 parser.add_argument('--num_agents', type=int, default=2, help='Number of agents')
 parser.add_argument('--max_eps_len', type=int, default=50, help='Number of steps per episode')
-parser.add_argument('--num_episodes', type=int, default=25000, help='Number training episodes')
+parser.add_argument('--num_episodes', type=int, default=50000, help='Number training episodes')
 parser.add_argument('--env', type=str, default='particle_world', help='Training env')
 parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
 parser.add_argument('--opt', type=str, default='sgd_gt', help='Optimizer')
@@ -92,9 +92,9 @@ def main():
 	num_agents = args.num_agents
 	dimension = args.dim
 	if args.minibatch_init == False:
-		fpath = os.path.join('mdpgt_results_min_' + str(args.min_isw) + 'isw', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta) + '_' + args.topology)
+		fpath = os.path.join('mdpgt_results_min_global_' + str(args.min_isw) + 'isw', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta) + '_' + args.topology)
 	elif args.minibatch_init == True:
-		fpath = os.path.join('mdpgt_results_min_' + str(args.min_isw) + 'isw', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta) + '_' + args.topology + 'MI' + str(args.minibatch_size))
+		fpath = os.path.join('mdpgt_results_min_global_' + str(args.min_isw) + 'isw', args.env, str(dimension) + 'D', args.opt + 'beta='+ str(args.beta) + '_' + args.topology + 'MI' + str(args.minibatch_size))
 	if not os.path.isdir(fpath):
 		os.makedirs(fpath)
 
@@ -209,25 +209,29 @@ def main():
 
 	v_k_list = copy.deepcopy(prev_u_list)
 
+	#consensus_v_k_list = take_consensus(v_k_list, args.num_agents)
 	consensus_v_k_list = take_grad_consensus(v_k_list, pi)
 
+	# print(pi)
 	# ##### for debugging new and old method
-	v_new = take_grad_consensus(v_k_list, pi)
-	v_old = take_consensus(v_k_list, args.num_agents)
-	for i in range(5):
-		for j in range(6):
-			print('Agent' + str(i) + 'Layer' + str(j) + ' ' + str(sum(v_new[i][j] - v_old[i][j])))
-			if torch.abs(sum(v_new[i][j] - v_old[i][j])) > 1e-6:
-				st
-	a_new = take_param_consensus(copy.deepcopy(old_agents), pi)
-	a_old = global_average(copy.deepcopy(old_agents), args.num_agents)
-	for i in range(5):
-		print('Dense1 weight ', sum(sum(a_new[0].dense1.weight.data - a_old[0].dense1.weight.data)))
-		print('Dense3 weight ', sum(sum(a_new[0].dense3.weight.data - a_old[0].dense3.weight.data)))
-		print('Dense2 bias ',sum(a_new[0].dense2.bias.data - a_old[0].dense2.bias.data))
-		print('Dense3 bias ',sum(a_new[0].dense3.bias.data - a_old[0].dense3.bias.data))
+	# v_new = take_grad_consensus(v_k_list, pi)
+	# v_old = take_consensus(v_k_list, args.num_agents)
+	# for i in range(5):
+	# 	for j in range(6):
+	# 		print('Agent' + str(i) + 'Layer' + str(j) + ' ' + str(torch.nn.functional.mse_loss(v_new[i][j], v_old[i][j])))
+	# 		if torch.nn.functional.mse_loss(v_new[i][j], v_old[i][j]) > 1e-6:
+	# 			st
+	# a_new = take_param_consensus(copy.deepcopy(old_agents), pi)
+	# a_old = global_average(copy.deepcopy(old_agents), args.num_agents)
+	# for i in range(5):
+	# 	print('Dense1 weight ', torch.nn.functional.mse_loss(a_new[0].dense1.weight.data, a_old[0].dense1.weight.data))
+	# 	print('Dense3 weight ', torch.nn.functional.mse_loss(a_new[0].dense3.weight.data, a_old[0].dense3.weight.data))
+	# 	print('Dense2 bias ', torch.nn.functional.mse_loss(a_new[0].dense2.bias.data, a_old[0].dense2.bias.data))
+	# 	print('Dense3 bias ', torch.nn.functional.mse_loss(a_new[0].dense3.bias.data, a_old[0].dense3.bias.data))
+	# st
 	# ######
 
+	#agents = global_average(agents, args.num_agents)
 	agents = take_param_consensus(agents, pi)
 
 	for policy, optimizer, v_k in zip(agents, optimizers, consensus_v_k_list):
@@ -309,18 +313,19 @@ def main():
 
 		## take consensus of v_k first
 		v_k_list = take_grad_consensus(v_k_list, pi)
+		#v_k_list = take_consensus(v_k_list, args.num_agents)
 
-		# ##### for debugging new and old method
-		print('--------------------')
-		print('debug 2')
-		v_new = take_grad_consensus(v_k_list, pi)
-		v_old = take_consensus(v_k_list, args.num_agents)
-		for i in range(5):
-			for j in range(6):
-				print('Agent' + str(i) + 'Layer' + str(j) + ' ' + str(sum(v_new[i][j] - v_old[i][j])))
-				if torch.abs(sum(v_new[i][j] - v_old[i][j])) > 1e-5:
-					st
-		# ######
+		# # ##### for debugging new and old method
+		# print('--------------------')
+		# print('debug 2')
+		# v_new = take_grad_consensus(v_k_list, pi)
+		# v_old = take_consensus(v_k_list, args.num_agents)
+		# for i in range(5):
+		# 	for j in range(6):
+		# 		print('Agent' + str(i) + 'Layer' + str(j) + ' ' + str(sum(v_new[i][j] - v_old[i][j])))
+		# 		if torch.abs(sum(v_new[i][j] - v_old[i][j])) > 1e-5:
+		# 			st
+		# # ######
 
 		## update v_k+1
 		next_v_k_list = []
@@ -332,27 +337,29 @@ def main():
 		prev_u_list = copy.deepcopy(u_k_list)
 
 		# take consensus of parameters and v_k+1
+		# agents = global_average(agents, args.num_agents)
+		# consensus_next_v_k_list = take_consensus(next_v_k_list, args.num_agents)
 		agents = take_param_consensus(agents, pi)
 		consensus_next_v_k_list = take_grad_consensus(next_v_k_list, pi)
 
-		# ##### for debugging new and old method
-		print('--------------------')
-		print('debug 3')
-		v_new = take_grad_consensus(v_k_list, pi)
-		v_old = take_consensus(v_k_list, args.num_agents)
-		for i in range(5):
-			for j in range(6):
-				print('Agent' + str(i) + 'Layer' + str(j) + ' ' + str(sum(v_new[i][j] - v_old[i][j])))
-				if torch.abs(sum(v_new[i][j] - v_old[i][j])) > 1e-5:
-					st
-		a_new = take_param_consensus(copy.deepcopy(old_agents), pi)
-		a_old = global_average(copy.deepcopy(old_agents), args.num_agents)
-		for i in range(5):
-			print('Dense1 weight ', sum(sum(a_new[0].dense1.weight.data - a_old[0].dense1.weight.data)))
-			print('Dense3 weight ', sum(sum(a_new[0].dense3.weight.data - a_old[0].dense3.weight.data)))
-			print('Dense2 bias ',sum(a_new[0].dense2.bias.data - a_old[0].dense2.bias.data))
-			print('Dense3 bias ',sum(a_new[0].dense3.bias.data - a_old[0].dense3.bias.data))
-		# ######
+		# # ##### for debugging new and old method
+		# print('--------------------')
+		# print('debug 3')
+		# v_new = take_grad_consensus(v_k_list, pi)
+		# v_old = take_consensus(v_k_list, args.num_agents)
+		# for i in range(5):
+		# 	for j in range(6):
+		# 		print('Agent' + str(i) + 'Layer' + str(j) + ' ' + str(sum(v_new[i][j] - v_old[i][j])))
+		# 		if torch.abs(sum(v_new[i][j] - v_old[i][j])) > 1e-5:
+		# 			st
+		# a_new = take_param_consensus(copy.deepcopy(old_agents), pi)
+		# a_old = global_average(copy.deepcopy(old_agents), args.num_agents)
+		# for i in range(5):
+		# 	print('Dense1 weight ', sum(sum(a_new[0].dense1.weight.data - a_old[0].dense1.weight.data)))
+		# 	print('Dense3 weight ', sum(sum(a_new[0].dense3.weight.data - a_old[0].dense3.weight.data)))
+		# 	print('Dense2 bias ',sum(a_new[0].dense2.bias.data - a_old[0].dense2.bias.data))
+		# 	print('Dense3 bias ',sum(a_new[0].dense3.bias.data - a_old[0].dense3.bias.data))
+		# # ######
 
 		# update_weights with v_k+1
 		for policy, optimizer, v_k in zip(agents, optimizers, consensus_next_v_k_list):
