@@ -27,6 +27,8 @@ parser.add_argument('--env', type=str, default='lineworld', help='Training env')
 parser.add_argument('--gpu', type=bool, default=False, help='Enable GPU')
 parser.add_argument('--opt', type=str, default='sgd', help='Optimizer')
 parser.add_argument('--momentum', type=float, default=0.0, help='Momentum term for SGD')
+parser.add_argument('--topology', type=str, default='dense', choices=('dense','ring','bipartite'))
+
 args = parser.parse_args()
 torch.manual_seed(args.seed)
 
@@ -52,6 +54,7 @@ def main():
 		agents.append(model.Policy(state_dim=dimension, action_dim=3).to(device))
 		optimizers.append(optim.SGD(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
 
+	pi = load_pi(num_agents=args.num_agents, topology=args.topology)
 	# RL setup
 	num_episodes = args.num_episodes
 	done = False
@@ -87,7 +90,10 @@ def main():
 
 		for policy, optimizer in zip(agents, optimizers):
 			_ = compute_grads(args, policy, optimizer)
-		agents = global_average(agents, num_agents)
+		
+		#agents = global_average(agents, num_agents)
+		agents = take_param_consensus(agents, pi)
+		
 		for policy, optimizer in zip(agents, optimizers):
 			update_weights(policy, optimizer)
 
