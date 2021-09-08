@@ -116,7 +116,7 @@ def main():
 
     Topologies = [FullyConnectedTopology, RingTopology, BiparTopology] # Add BiparTopology when defined
     Topologies_name = ['FC', 'Ring', 'Bipar'] # Add BiparTopology when defined
-    agent_num_list = [i for i in range(3,7,1)]
+    agent_num_list = [i for i in range(2,41,1)]
     agent_num_list.append(5)
     for num_agents in agent_num_list:
         for eid, topology in enumerate(Topologies):

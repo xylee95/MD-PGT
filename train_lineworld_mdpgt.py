@@ -33,60 +33,61 @@ parser.add_argument('--beta', type=float, default=0.9, help='Beta term for surro
 parser.add_argument('--min_isw', type=float, default=0.0, help='Minimum value to set ISW')
 parser.add_argument('--minibatch_init', type=bool, default=False, help='Initialize grad with minibatch')
 parser.add_argument('--minibatch_size', type=int, default=32, help='Number of trajectory for warm startup')
+parser.add_argument('--topology', type=str, default='dense', choices=('dense','ring','bipartite'))
 
 args = parser.parse_args()
 torch.manual_seed(args.seed)
 
 class SGD_GT(torch.optim.Optimizer):
-    def __init__(self, params, lr=0.01, momentum=0, dampening=0,
-                 weight_decay=0, nesterov=False):
-        if lr < 0.0:
-            raise ValueError("Invalid learning rate: {}".format(lr))
-        if momentum < 0.0:
-            raise ValueError("Invalid momentum value: {}".format(momentum))
-        if weight_decay < 0.0:
-            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+	def __init__(self, params, lr=0.01, momentum=0, dampening=0,
+				 weight_decay=0, nesterov=False):
+		if lr < 0.0:
+			raise ValueError("Invalid learning rate: {}".format(lr))
+		if momentum < 0.0:
+			raise ValueError("Invalid momentum value: {}".format(momentum))
+		if weight_decay < 0.0:
+			raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
 
-        defaults = dict(lr=lr, momentum=momentum, dampening=dampening,
-                        weight_decay=weight_decay, nesterov=nesterov)
-        if nesterov and (momentum <= 0 or dampening != 0):
-            raise ValueError("Nesterov momentum requires a momentum and zero dampening")
-        super(SGD_GT, self).__init__(params, defaults)
+		defaults = dict(lr=lr, momentum=momentum, dampening=dampening,
+						weight_decay=weight_decay, nesterov=nesterov)
+		if nesterov and (momentum <= 0 or dampening != 0):
+			raise ValueError("Nesterov momentum requires a momentum and zero dampening")
+		super(SGD_GT, self).__init__(params, defaults)
 
-    def __setstate__(self, state):
-        super(SGD_GT, self).__setstate__(state)
-        for group in self.param_groups:
-            group.setdefault('nesterov', False)
+	def __setstate__(self, state):
+		super(SGD_GT, self).__setstate__(state)
+		for group in self.param_groups:
+			group.setdefault('nesterov', False)
 
-    @torch.no_grad()
-    def step(self, closure=None, grads=None):
-        """Performs a single optimization step.
+	@torch.no_grad()
+	def step(self, closure=None, grads=None):
+		"""Performs a single optimization step.
 
-        Arguments:
-            closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
-        """
-        loss = None
-        if closure is not None:
-            with torch.enable_grad():
-                loss = closure()
-        grad_iter = 0
-        for group in self.param_groups:
-            weight_decay = group['weight_decay']
-            momentum = group['momentum']
-            dampening = group['dampening']
-            nesterov = group['nesterov']
+		Arguments:
+			closure (callable, optional): A closure that reevaluates the model
+				and returns the loss.
+		"""
+		loss = None
+		if closure is not None:
+			with torch.enable_grad():
+				loss = closure()
+		grad_iter = 0
+		for group in self.param_groups:
+			weight_decay = group['weight_decay']
+			momentum = group['momentum']
+			dampening = group['dampening']
+			nesterov = group['nesterov']
 
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-                if grads is not None:
-                	d_p = (grads[grad_iter]).view(p.shape)
-                	grad_iter+=1
-                else:
-                	d_p = p.grad
-                p.add_(d_p, alpha=-group['lr'])
-        return loss	
+			for p in group['params']:
+				if p.grad is None:
+					continue
+				if grads is not None:
+					d_p = (grads[grad_iter]).view(p.shape)
+					grad_iter+=1
+				else:
+					d_p = p.grad
+				p.add_(d_p, alpha=-group['lr'])
+		return loss	
 
 def main():
 	# initialize env
@@ -110,6 +111,9 @@ def main():
 		agents.append(model.Policy(state_dim=dimension, action_dim=3).to(device))
 		optimizers.append(SGD_GT(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
 
+
+	# load connectivity matrix
+	pi = load_pi(num_agents=args.num_agents, topology=args.topology)
 	#initialization
 	old_agents = copy.deepcopy(agents)
 	print('Sampling initial trajectory')
@@ -143,9 +147,10 @@ def main():
 
 	v_k_list = copy.deepcopy(prev_u_list)
 
-	consensus_v_k_list = take_consensus(v_k_list, num_agents)
-
-	agents = global_average(agents, num_agents)
+	#consensus_v_k_list = take_consensus(v_k_list, num_agents)
+	consensus_v_k_list = take_grad_consensus(v_k_list, pi)
+	#agents = global_average(agents, num_agents)
+	agents = take_param_consensus(agents, pi)
 
 	for policy, optimizer, v_k in zip(agents, optimizers, consensus_v_k_list):
 		update_weights(policy, optimizer, grads=v_k)
@@ -221,7 +226,8 @@ def main():
 			u_k_list.append(u_k)
 
 		## take consensus of v_k first
-		v_k_list = take_consensus(v_k_list, num_agents)
+		v_k_list = take_grad_consensus(v_k_list, pi)
+		#v_k_list = take_consensus(v_k_list, num_agents)
 
 		## update v_k+1
 		next_v_k_list = []
@@ -233,8 +239,10 @@ def main():
 		prev_u_list = copy.deepcopy(u_k_list)
 
 		# take consensus of parameters and v_k+1
-		agents = global_average(agents, num_agents)
-		consensus_next_v_k_list = take_consensus(next_v_k_list, num_agents)
+		# agents = global_average(agents, num_agents)
+		# consensus_next_v_k_list = take_consensus(next_v_k_list, num_agents)
+		agents = take_param_consensus(agents, pi)
+		consensus_next_v_k_list = take_grad_consensus(next_v_k_list, pi)
 
 		# update_weights with grad surrogate
 		for policy, optimizer, v_k in zip(agents, optimizers, consensus_next_v_k_list):

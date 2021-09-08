@@ -30,6 +30,7 @@ parser.add_argument('--opt', type=str, default='sgd_m', help='Optimizer')
 parser.add_argument('--momentum', type=float, default=0.0, help='Momentum term for SGD')
 parser.add_argument('--beta', type=float, default=0.9, help='Beta term for surrogate gradient')
 parser.add_argument('--min_isw', type=float, default=0.0, help='Minimum value to set ISW')
+parser.add_argument('--topology', type=str, default='dense', choices=('dense','ring','bipartite'))
 args = parser.parse_args()
 torch.manual_seed(args.seed)
 
@@ -105,6 +106,8 @@ def main():
 		agents.append(model.Policy(state_dim=dimension, action_dim=3).to(device))
 		optimizers.append(SGD_M(agents[i].parameters(), lr=3e-4, momentum=args.momentum))
 
+	# load connectivity matrix
+	pi = load_pi(num_agents=args.num_agents, topology=args.topology)
 	#initialization
 	old_agents = copy.deepcopy(agents)
 	print('Sampling initial trajectory')
@@ -136,7 +139,9 @@ def main():
 	for policy, optimizer in zip(agents, optimizers):
 		grads = compute_grads(args, policy, optimizer)
 		prev_u_list.append(grads)
-	agents = global_average(agents, num_agents)
+	
+	agents = take_param_consensus(agents, pi)
+	#agents = global_average(agents, num_agents)
 	for policy, optimizer in zip(agents, optimizers):
 		update_weights(policy, optimizer)
 
@@ -214,7 +219,8 @@ def main():
 			u_k_list.append(u_k)
 
 		# take consensus of parameters
-		agents = global_average(agents, num_agents)
+		agents = take_param_consensus(agents, pi)
+		#agents = global_average(agents, num_agents)
 
 		# update_weights with local grad surrogate, u_k
 		for policy, optimizer, u_k in zip(agents, optimizers, u_k_list):

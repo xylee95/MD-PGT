@@ -374,7 +374,10 @@ def main():
 			R_hist_plot.append(avg_reward)
 			R_hist = []
 			print(f'Episode:{episode} Average reward:{avg_reward:.2f}')
-							
+
+		if episode == 50000:
+			np.save(os.path.join(os.path.join(fpath, 'R_array_' + str(args.seed) + '_50k.npy')), R_hist_plot)
+
 	plt.figure()
 	plt.plot(R_hist_plot)
 	plt.ylabel('Reward')
