@@ -3,7 +3,7 @@ Repository for implementing decentralized PGT
 
 # Available Environments
 - Lineworld
-- Particle-world (available in another repo forked from Loew et al)
+- Particle-world (installation instructions is available in another repo forked from Loew et al)
 
 # Available Agents
 - DPG
