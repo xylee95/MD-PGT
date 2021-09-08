@@ -2,10 +2,8 @@
 Repository for implementing decentralized PGT
 
 # Available Environments
-- Quadratic, Rastrigin, Griewangk, Styblinski-Tang for 2D, 3D, 5D and 10D (Unused, removing later)
 - Lineworld
 - Particle-world (available in another repo forked from Loew et al)
-- Gridworld (Check with Russell if still used)
 
 # Available Agents
 - DPG
@@ -24,5 +22,6 @@ Repository for implementing decentralized PGT
 
 Both MDPG and MDPGT has the option of using Minibatch Initialization to compute batch gradient surrogate.
 
-# To do:
-- Implemeny different consensus topology using adj matrix instead of global average
+# Reproducing the results:
+To reproduce the results shown in the paper, please check `run_exp.sh` for the relevant python commands. 
+
