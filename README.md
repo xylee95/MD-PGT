@@ -1,9 +1,9 @@
 # MD-PGT
-Repository for implementing decentralized PGT
+Repository for implementing and reproducing the results for the paper MDPGT: Momentum-based Decentralized Policy Gradient Tracking.
 
 # Available Environments
 - Lineworld
-- Particle-world (installation instructions is available in another repo forked from Loew et al)
+- Particle-world (installation instructions available at https://github.com/xylee95/MDPGT_particleworld)
 
 # Available Agents
 - DPG
