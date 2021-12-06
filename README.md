@@ -6,9 +6,9 @@ Repository for implementing and reproducing the results for the paper MDPGT: Mom
 - Particle-world (installation instructions available at https://github.com/xylee95/MDPGT_particleworld)
 
 # Available Agents
-- DPG
-- MDPG
-- MDPGT
+- DPG: Decentralized Policy Gradients
+- MDPG : Momentum Decentralized Policy Gradients
+- MDPGT : Momentum-based Decentralized Policy Gradient Tracking
 
 # Main files used are:
 - train_lineworld_dpg.py
