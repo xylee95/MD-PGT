@@ -3,7 +3,7 @@ Repository for implementing and reproducing the results for the paper MDPGT: Mom
 
 # Available Environments
 - Lineworld
-- Particle-world (installation instructions available at https://github.com/xylee95/MDPGT_particleworld)
+- Particle-world (installation instructions available at https://github.com/xylee95/MDPGT_particleworld
 
 # Available Agents
 - DPG: Decentralized Policy Gradients
