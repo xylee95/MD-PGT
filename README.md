@@ -1,5 +1,5 @@
 # MD-PGT
-Repository for implementing and reproducing the results for the paper MDPGT: Momentum-based Decentralized Policy Gradient Tracking.
+Repository for implementing and reproducing the results for the paper MDPGT: Momentum-based Decentralized Policy Gradient Tracking: https://arxiv.org/abs/2112.02813
 
 # Available Environments
 - Lineworld
